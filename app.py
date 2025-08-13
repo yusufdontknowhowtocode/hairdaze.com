@@ -506,6 +506,10 @@ if os.getenv("ENABLE_REMINDERS", "1") == "1":
         minute=int(os.getenv("REMINDER_MINUTE", "0"))
     )
 
+@app.get("/healthz")
+def healthz():
+    return "ok", 200
+
 # ---------- Run ----------
 if __name__ == "__main__":
     # Use Gunicorn in production: gunicorn app:app -b 0.0.0.0:$PORT --workers 2 --threads 4
