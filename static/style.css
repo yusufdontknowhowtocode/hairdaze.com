@@ -209,3 +209,71 @@ footer{border-top:1px solid rgba(0,0,0,.06);background:rgba(255,255,255,.85);bac
 @media (prefers-reduced-motion: reduce){
   .orb,.reveal,.hero-media .slide, body::before{animation:none}
 }
+/* --- Reviews: marquee scroller --- */
+.reviews-marquee{
+  position:relative;
+  overflow:hidden;
+  padding-block:.75rem;
+  display:flex;          /* keep both tracks on ONE row */
+  gap:0;
+}
+
+.marquee-track{
+  display:flex;
+  gap:1rem;
+  align-items:stretch;
+  width:max-content;
+  list-style:none;
+  margin:0;
+  padding:0;
+  flex:0 0 auto;         /* don’t wrap to a new line */
+  white-space:nowrap;
+  animation:reviews-scroll 42s linear infinite;
+  will-change:transform;
+}
+.marquee-track:hover{ animation-play-state:paused; }
+
+.review-card{
+  width:clamp(260px,34vw,420px);
+  flex:0 0 auto;
+}
+.review-text{ font-size:1.05rem; line-height:1.5; }
+.review-author{ margin-top:.5rem; font-weight:700; }
+.review-stars{ color:#f59e0b; letter-spacing:.12em; }
+
+/* soft fades at edges */
+.marquee-fade{
+  position:absolute; top:0; bottom:0; width:70px; pointer-events:none;
+}
+.marquee-fade.left{
+  left:0; background:linear-gradient(to right, rgba(255,255,255,1), rgba(255,255,255,0));
+}
+.marquee-fade.right{
+  right:0; background:linear-gradient(to left, rgba(255,255,255,1), rgba(255,255,255,0));
+}
+
+@keyframes reviews-scroll{
+  from{ transform:translateX(0); }
+  to{   transform:translateX(-50%); } /* one full copy width */
+}
+
+@media (prefers-reduced-motion: reduce){
+  .marquee-track{ animation:none; }
+}
+/* --- fix review text wrapping inside marquee cards --- */
+.marquee-track{
+  /* keep it one row via flex, not white-space */
+  flex-wrap: nowrap;
+  white-space: initial;  /* <-- or just delete the old white-space: nowrap; line */
+}
+
+.review-card,
+.review-card *{
+  white-space: normal;           /* allow wrapping inside each card */
+}
+
+.review-text{
+  overflow-wrap: anywhere;       /* break long words if needed */
+  word-break: break-word;        /* safe fallback */
+  line-height: 1.55;
+}

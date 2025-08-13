@@ -60,16 +60,28 @@
       <h2>Services</h2>
       <div class="grid grid-3">
         <div class="card service-card">
-          <h3>Precision Cut ✂️</h3>
-          <p>Tailored cuts that fit your face shape and lifestyle.</p>
+          <h3>Women’s Cut &amp; Finish</h3>
+          <p>Custom cut, cleanse, and blow-dry finish tailored to your style.</p>
         </div>
         <div class="card service-card">
-          <h3>Color & Balayage 🎨</h3>
-          <p>Natural dimension or bold transformations—your call.</p>
+          <h3>Men’s Cut</h3>
+          <p>Clean lines and classic or modern looks—quick and precise.</p>
         </div>
         <div class="card service-card">
-          <h3>Blowouts & Styling 💨</h3>
-          <p>Polished looks for events—or just because.</p>
+          <h3>Highlights &amp; Balayage</h3>
+          <p>Natural dimension or bold brightness with low-maintenance grow-out.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Root Touch-Up</h3>
+          <p>Seamless coverage for outgrowth to keep your color fresh.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Blowout &amp; Style</h3>
+          <p>Smooth and polished or big, bouncy waves—your call.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Keratin Treatment</h3>
+          <p>Frizz control and shine for weeks with a smoothing keratin service.</p>
         </div>
       </div>
     </div>
@@ -92,26 +104,82 @@
     </div>
   </section>
 
-  <!-- Reviews -->
-  <section class="section reviews">
+  <!-- Reviews (marquee) -->
+  <section class="section reviews" aria-labelledby="reviews-title">
     <div class="container">
-      <h2>What Our Clients Say</h2>
-      <div class="reviews-grid">
-        <article class="review-card card reveal">
-          <p class="review-text">“Absolutely love my hair! The team was so welcoming.”</p>
-          <p class="review-author">— Jessica R.</p>
-          <p class="review-stars">★★★★★</p>
-        </article>
-        <article class="review-card card reveal" style="--d:.08s">
-          <p class="review-text">“Best salon experience I’ve ever had.”</p>
-          <p class="review-author">— Amanda S.</p>
-          <p class="review-stars">★★★★★</p>
-        </article>
-        <article class="review-card card reveal" style="--d:.16s">
-          <p class="review-text">“My hair has never looked better.”</p>
-          <p class="review-author">— Emily T.</p>
-          <p class="review-stars">★★★★★</p>
-        </article>
+      <h2 id="reviews-title">What Our Clients Say</h2>
+
+      <div class="reviews-marquee">
+        <!-- track 1 -->
+        <ul class="marquee-track" role="list">
+          <li class="review-card card">
+            <p class="review-text">“I’ve been going to HairDaze for years. Love the service. Staff is amazing and welcoming!! 10/10 recommend.”</p>
+            <p class="review-author">— Jaelyn</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Love the service here. Been coming here for years. Amazing technique and great conversation.”</p>
+            <p class="review-author">— Ava</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Such nice people! The owner is an amazing success story. Best haircut I’ve had in a long time!”</p>
+            <p class="review-author">— Heb</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Absolutely love my hair! The team was so welcoming.”</p>
+            <p class="review-author">— Jessica</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Best salon experience I’ve ever had.”</p>
+            <p class="review-author">— Amanda</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“My hair has never looked better.”</p>
+            <p class="review-author">— Emily</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+        </ul>
+
+        <!-- duplicate track for a seamless loop -->
+        <ul class="marquee-track" aria-hidden="true" role="list">
+          <li class="review-card card">
+            <p class="review-text">“I’ve been going to HairDaze for years. Love the service. Staff is amazing and welcoming!! 10/10 recommend.”</p>
+            <p class="review-author">— Jaelyn</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Love the service here. Been coming here for years. Amazing technique and great conversation.”</p>
+            <p class="review-author">— Ava</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Such nice people! The owner is an amazing success story. Best haircut I’ve had in a long time!”</p>
+            <p class="review-author">— Heb</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Absolutely love my hair! The team was so welcoming.”</p>
+            <p class="review-author">— Jessica</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“Best salon experience I’ve ever had.”</p>
+            <p class="review-author">— Amanda</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+          <li class="review-card card">
+            <p class="review-text">“My hair has never looked better.”</p>
+            <p class="review-author">— Emily</p>
+            <p class="review-stars">★★★★★</p>
+          </li>
+        </ul>
+
+        <div class="marquee-fade left" aria-hidden="true"></div>
+        <div class="marquee-fade right" aria-hidden="true"></div>
       </div>
     </div>
   </section>
@@ -210,7 +278,7 @@
       }, {passive:true});
     }
 
-    // ===== Canvas: richer colorful flow (no flicker) =====
+    // ===== Canvas background =====
     const canvas = document.getElementById('bgCanvas');
     const ctx = canvas.getContext('2d');
     function size(){
@@ -234,7 +302,6 @@
     function draw(now){
       const dt = Math.min(40, now-last); last = now; t += dt/9000;
 
-      // a touch stronger veil for more visible trails
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(255,255,255,0.06)';
       ctx.fillRect(0,0,innerWidth,innerHeight);
