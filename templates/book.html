@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Book Appointment – HairDaze</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .book-wrap{
+      min-height: 100vh;
+      display:flex; align-items:center; justify-content:center;
+      padding: 64px 20px;
+      background: radial-gradient(1200px 600px at 10% 0%, #ffd6bf33, transparent 60%),
+                  radial-gradient(1200px 600px at 100% 100%, #bfeeed33, transparent 60%),
+                  #ffffff;
+    }
+    .book-card{
+      width: 100%;
+      max-width: 660px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.70));
+      box-shadow: 0 25px 80px rgba(20,20,20,.14);
+      border: 1px solid rgba(0,0,0,.06);
+      overflow:hidden;
+      backdrop-filter: blur(6px);
+    }
+    .book-head{
+      padding: 22px 26px;
+      background: linear-gradient(90deg, #ff9966 0%, #66cccc 100%);
+      color:#fff;
+    }
+    .book-head h1{
+      margin:0; font-size:1.6rem; line-height:1.2; letter-spacing:.3px;
+      text-shadow: 0 1px 6px rgba(0,0,0,.15);
+    }
+    .book-body{ padding: 22px 26px 26px; }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .row + .row{ margin-top:12px; }
+    @media (max-width:720px){ .row{ grid-template-columns:1fr; } }
+    label{ font-weight:800; font-size:.92rem; margin-bottom:6px; display:block; color:#374151; }
+    input, select, textarea{
+      width:100%; padding:12px 14px; border-radius:12px;
+      border:1px solid rgba(0,0,0,.12); background:#fff;
+      font-size:1rem; outline:none;
+      transition:border-color .2s ease, box-shadow .2s ease;
+    }
+    input:focus, select:focus, textarea:focus{
+      border-color:#66cccc; box-shadow:0 0 0 4px rgba(102,204,204,.15);
+    }
+    .actions{ margin-top:18px; display:flex; gap:10px; justify-content:flex-end; align-items:center; }
+    .btn{ padding:.9rem 1.6rem; border:none; border-radius:12px; font-weight:800; cursor:pointer; }
+    .btn-primary{ color:#fff; background:linear-gradient(90deg,#ff9966,#66cccc); }
+    .muted{ color:#6b7280; font-size:.9rem; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+      background:#fff; border:1px solid rgba(0,0,0,.06); box-shadow:0 6px 16px rgba(0,0,0,.06); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <h1 class="brand">HairDaze</h1>
+    <nav class="nav">
+      <a href="{{ url_for('index') }}">Home</a>
+      <a href="{{ url_for('index') }}#services">Services</a>
+      <a href="{{ url_for('index') }}#contact-section">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main class="book-wrap">
+  <form class="book-card" method="post" action="{{ url_for('book') }}">
+    <div class="book-head">
+      <h1>👩‍🦳 Book Your Appointment</h1>
+      <div class="muted" style="margin-top:6px;">Choose a date, time & service. We’ll email a confirmation.</div>
+    </div>
+
+    <div class="book-body">
+      <div class="row">
+        <div>
+          <label for="date">Select Date</label>
+          <input type="date" id="date" name="date" required min="{{ min_date }}">
+        </div>
+        <div>
+          <label for="time">Available Time</label>
+          <select id="time" name="time" required>
+            <option value="">Select time</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="name">Your Name</label>
+          <input id="name" name="name" type="text" placeholder="Enter your full name" required>
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="you@example.com" required>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="phone">Phone (optional)</label>
+          <input id="phone" name="phone" type="tel" placeholder="(xxx) xxx-xxxx" maxlength="14">
+        </div>
+        <div>
+          <label for="service">Service</label>
+          <select id="service" name="service" required>
+            <option value="">Select a service</option>
+            <option>Women’s Cut</option>
+            <option>Men’s Cut</option>
+            <option>Balayage</option>
+            <option>Highlights</option>
+            <option>Blowout</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <span id="status" class="muted"></span>
+        <button type="submit" class="btn btn-primary">Confirm Booking</button>
+      </div>
+
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+        <span class="pill">⏰ Tue–Sat</span>
+        <span class="pill">📍 North Wales</span>
+        <span class="pill">✨ Healthy hair first</span>
+      </div>
+    </div>
+  </form>
+</main>
+
+<script>
+  // simple phone formatter
+  (function(){
+    const phone = document.getElementById('phone');
+    if (!phone) return;
+    phone.addEventListener('input', e=>{
+      let v = e.target.value.replace(/\D/g,'').slice(0,10);
+      if (v.length >= 6) e.target.value = `(${v.slice(0,3)}) ${v.slice(3,6)}-${v.slice(6)}`;
+      else if (v.length >= 4) e.target.value = `(${v.slice(0,3)}) ${v.slice(3)}`;
+      else if (v.length >= 1) e.target.value = `(${v}`;
+      else e.target.value = '';
+    });
+  })();
+
+  // load available times when a date is chosen
+  (function(){
+    const date = document.getElementById('date');
+    const time = document.getElementById('time');
+    if (!date || !time) return;
+
+    async function loadTimes(d){
+      time.innerHTML = `<option value="">Loading…</option>`;
+      try{
+        // Adjust this endpoint name if yours differs:
+        const res = await fetch(`/available_times?date=${encodeURIComponent(d)}`);
+        if (!res.ok) throw 0;
+        const data = await res.json();
+        const slots = Array.isArray(data.times) ? data.times : (Array.isArray(data) ? data : []);
+        if (!slots.length){
+          time.innerHTML = `<option value="">No times available</option>`;
+          return;
+        }
+        time.innerHTML = `<option value="">Select time</option>` + 
+          slots.map(t=>`<option>${t}</option>`).join('');
+      }catch{
+        // fallback
+        const fallback = ["10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM"];
+        time.innerHTML = `<option value="">Select time</option>` + 
+          fallback.map(t=>`<option>${t}</option>`).join('');
+      }
+    }
+
+    date.addEventListener('change', e=>{
+      if (e.target.value) loadTimes(e.target.value);
+    });
+
+    // preload if server provided min_date equals today
+    if (date.value) loadTimes(date.value);
+  })();
+
+  // optional: show quick submit feedback (server still handles everything)
+  (function(){
+    const form = document.querySelector('form.book-card');
+    const status = document.getElementById('status');
+    if (!form || !status) return;
+    form.addEventListener('submit', ()=>{ status.textContent = 'Submitting…'; });
+  })();
+</script>
+</body>
+</html>

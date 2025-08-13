@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Salon Admin — Bookings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --accent: #ff7e5f;
+      --accent-2: #ffd6c0;
+      --green: #2e7d32;
+      --yellow: #996c00;
+      --red: #c0392b;
+      --muted: #6b7280;
+      --blue: #2563eb;
+      --gray: #6b7280;
+    }
+    body {
+      font-family: Nunito, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: linear-gradient(120deg, #f6f9fc, #fef7f4);
+      margin: 0;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      padding: 18px;
+      max-width: 1100px;
+      margin: 0 auto;
+      border: 3px solid transparent;
+      background-image:
+        linear-gradient(#fff,#fff),
+        linear-gradient(135deg, var(--accent-2), var(--accent));
+      background-origin: border-box;
+      background-clip: content-box, border-box;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.6rem; }
+    .bar {
+      display: grid; grid-template-columns: 1fr auto auto;
+      gap: 10px; align-items: center; margin-bottom: 14px;
+    }
+    .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    input[type="text"], input[type="date"], select {
+      padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px;
+      min-width: 160px; font-size: .95rem;
+    }
+    .radio { display: inline-flex; gap: 8px; align-items: center; font-size: .9rem;
+      color: #374151; background: #f3f4f6; padding: 6px 10px; border-radius: 999px; }
+    .link { color: var(--accent); text-decoration: none; font-weight: 700; }
+
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #eef2f7; text-align: left; }
+    th { background: #fafafa; font-weight: 700; color: #374151; }
+
+    tr.today { background: #eaf6ec; }
+    tr.tomorrow { background: #fff7e0; }
+    tr.later { background: #f8fafc; }
+
+    .tag { padding: 4px 10px; border-radius: 999px; font-size: .8rem; display: inline-block; }
+    .Scheduled { background: #e8f5e9; color: var(--green); }
+    .Cancelled { background: #fdecea; color: var(--red); }
+    .Completed { background: #eef2f7; color: var(--gray); }
+
+    .btn { background: var(--accent); color: #fff; border: none; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; }
+    .btn:hover { filter: brightness(0.95); }
+    .btn-danger { background: #e74c3c; }
+    .btn-blue { background: var(--blue); }
+    .btn-gray { background: #6b7280; }
+    .right { text-align: right; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .empty { text-align: center; color: var(--muted); padding: 30px 0; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      display: none; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal {
+      width: 95%; max-width: 460px; background: #fff; border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25); padding: 18px;
+    }
+    .modal h3 { margin: 4px 0 12px; }
+    .modal .row { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 8px 0; }
+    .modal input, .modal select {
+      padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; width: 100%;
+    }
+    .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>📋 Salon Bookings</h1>
+    <div class="bar">
+      <div class="filters">
+        <input id="search" type="text" placeholder="Search name or service…" />
+        <label class="radio"><input type="radio" name="dateMode" value="all" checked> All</label>
+        <label class="radio"><input type="radio" name="dateMode" value="today"> Today</label>
+        <label class="radio"><input type="radio" name="dateMode" value="tomorrow"> Tomorrow</label>
+        <!-- Export controls -->
+        <input id="expStart" type="date" />
+        <input id="expEnd" type="date" />
+        <select id="expStatus">
+          <option value="scheduled" selected>Scheduled only</option>
+          <option value="all">All statuses</option>
+        </select>
+        <button id="exportBtn" class="btn btn-gray" type="button">Export CSV</button>
+      </div>
+
+      <div class="muted">
+        {% if show_all %}
+          Showing <strong>Scheduled + Cancelled + Completed</strong> •
+          <a class="link" href="{{ url_for('admin') }}">Show scheduled only</a>
+        {% else %}
+          Showing <strong>Scheduled</strong> •
+          <a class="link" href="{{ url_for('admin') }}?show=all">Include cancelled/completed</a>
+        {% endif %}
+      </div>
+
+      <div class="right">
+        <button id="refresh" class="btn" type="button">Refresh</button>
+      </div>
+    </div>
+
+    {% if bookings %}
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>Date</th><th>Time</th><th>Client</th><th>Service</th><th>Status</th><th class="right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in bookings %}
+          {% set row_class = "later" %}
+          {% if r["date"] == today %}{% set row_class = "today" %}{% elif r["date"] == tomorrow %}{% set row_class = "tomorrow" %}{% endif %}
+          <tr class="{{ row_class }}"
+              data-id="{{ r['id'] }}"
+              data-date="{{ r['date'] }}"
+              data-time="{{ r['time'] }}"
+              data-name="{{ r['name'] }}"
+              data-service="{{ r['service'] }}"
+              data-status="{{ r['status'] }}">
+            <td class="cell-date">{{ r["date"] }}</td>
+            <td class="cell-time">{{ r["time"] }}</td>
+            <td class="cell-name">{{ r["name"] }}</td>
+            <td class="cell-service">{{ r["service"] }}</td>
+            <td class="cell-status"><span class="tag {{ r['status'] }}">{{ r["status"] }}</span></td>
+            <td class="right">
+              {% if r["status"] == "Scheduled" %}
+                <button class="btn btn-blue btn-edit" data-id="{{ r['id'] }}">Edit</button>
+                <button class="btn btn-gray btn-complete" data-id="{{ r['id'] }}">Complete</button>
+                <button class="btn btn-danger btn-cancel" data-id="{{ r['id'] }}">Cancel</button>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">No bookings yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal-backdrop" id="editModal">
+    <div class="modal">
+      <h3>Edit Booking</h3>
+      <div class="row"><input id="m-name" type="text" placeholder="Client name" /></div>
+      <div class="row">
+        <select id="m-service">
+          <option value="Classic Haircut">Classic Haircut</option>
+          <option value="Full Hair Coloring">Full Hair Coloring</option>
+          <option value="Blowout Styling">Blowout Styling</option>
+          <option value="Deep Conditioning Treatment">Deep Conditioning Treatment</option>
+          <option value="Bridal Updo">Bridal Updo</option>
+          <option value="Keratin Smoothing">Keratin Smoothing</option>
+        </select>
+      </div>
+      <div class="row"><input id="m-date" type="date" /></div>
+      <div class="row"><select id="m-time"></select></div>
+      <div class="actions">
+        <button class="btn" id="m-cancel">Close</button>
+        <button class="btn btn-blue" id="m-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SHOW_ALL = {{ 'true' if show_all else 'false' }};
+    const TODAY = "{{ today }}";
+    const TOMORROW = "{{ tomorrow }}";
+
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+    // ===== Filters =====
+    const search = $('#search');
+    const radios = $$('input[name="dateMode"]');
+    const getRows = () => $$('#tbl tbody tr[data-id]');
+    function applyFilters() {
+      const q = (search.value || "").trim().toLowerCase();
+      const mode = (radios.find(r => r.checked) || {}).value || 'all';
+      getRows().forEach(tr => {
+        const text = (tr.dataset.name + " " + tr.dataset.service).toLowerCase();
+        const date = tr.dataset.date;
+        let show = !q || text.includes(q);
+        if (mode === 'today') show = show && date === TODAY;
+        else if (mode === 'tomorrow') show = show && date === TOMORROW;
+        tr.style.display = show ? '' : 'none';
+      });
+    }
+    search.addEventListener('input', applyFilters);
+    radios.forEach(r => r.addEventListener('change', applyFilters));
+    $('#refresh')?.addEventListener('click', () => location.reload());
+
+    // ===== Export CSV =====
+    const expStart = $('#expStart'), expEnd = $('#expEnd'), expStatus = $('#expStatus');
+    $('#exportBtn').addEventListener('click', () => {
+      const qs = new URLSearchParams();
+      if (expStart.value) qs.set('start', expStart.value);
+      if (expEnd.value) qs.set('end', expEnd.value);
+      qs.set('status', expStatus.value || 'scheduled');
+      window.location.href = `/admin/export.csv?${qs.toString()}`;
+    });
+
+    // ===== Cancel =====
+    async function cancelBooking(id, row) {
+      if (!confirm('Cancel this booking?')) return;
+      try {
+        const res = await fetch(`/admin/api/cancel/${id}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok && data.changed) {
+          if (SHOW_ALL) {
+            row.dataset.status = "Cancelled";
+            row.querySelector('.cell-status .tag').className = "tag Cancelled";
+            row.querySelector('.cell-status .tag').textContent = "Cancelled";
+            row.querySelector('.btn-cancel')?.remove();
+            row.querySelector('.btn-edit')?.remove();
+            row.querySelector('.btn-complete')?.remove();
+          } else {
+            row.remove();
+          }
+        } else {
+          alert('Could not cancel (maybe already cancelled).');
+        }
+      } catch { alert('Network error. Try again.'); }
+    }
+    $$('.btn-cancel').forEach(btn => btn.addEventListener('click', () => {
+      cancelBooking(btn.dataset.id, btn.closest('tr'));
+    }));
+
+    // ===== Complete =====
+    async function completeBooking(id, row) {
+      try {
+        const res = await fetch(`/admin/api/complete/${id}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok && data.changed) {
+          if (SHOW_ALL) {
+            row.dataset.status = "Completed";
+            const tag = row.querySelector('.cell-status .tag');
+            tag.className = "tag Completed";
+            tag.textContent = "Completed";
+            row.querySelector('.btn-cancel')?.remove();
+            row.querySelector('.btn-edit')?.remove();
+            row.querySelector('.btn-complete')?.remove();
+          } else {
+            row.remove();
+          }
+        } else {
+          alert('Could not mark completed.');
+        }
+      } catch { alert('Network error. Try again.'); }
+    }
+    $$('.btn-complete').forEach(btn => btn.addEventListener('click', () => {
+      completeBooking(btn.dataset.id, btn.closest('tr'));
+    }));
+
+    // ===== Edit modal =====
+    const backdrop = $('#editModal');
+    const mName = $('#m-name'), mService = $('#m-service'), mDate = $('#m-date'), mTime = $('#m-time');
+    const mSave = $('#m-save'), mClose = $('#m-cancel');
+    let currentRow = null;
+
+    function openModal(row) {
+      currentRow = row;
+      mName.value = row.dataset.name;
+      mService.value = row.dataset.service;
+      mDate.value = row.dataset.date;
+      loadTimes(row.dataset.date, row.dataset.time);
+      backdrop.style.display = 'flex';
+    }
+    function closeModal() {
+      currentRow = null;
+      backdrop.style.display = 'none';
+      mTime.innerHTML = '';
+    }
+    backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(); });
+    mClose.addEventListener('click', closeModal);
+
+    async function loadTimes(dateStr, currentTime) {
+      mTime.innerHTML = '<option>Loading…</option>';
+      try {
+        const res = await fetch(`/available_times?date=${encodeURIComponent(dateStr)}`);
+        const data = await res.json();
+        const times = new Set(data.times || []);
+        if (currentTime) times.add(currentTime);
+        mTime.innerHTML = '';
+        [...times].sort((a,b)=> new Date(`1970-01-01 ${a}`)-new Date(`1970-01-01 ${b}`)).forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t; opt.textContent = t;
+          if (t === currentTime) opt.selected = true;
+          mTime.appendChild(opt);
+        });
+      } catch { mTime.innerHTML = '<option disabled>Error loading times</option>'; }
+    }
+    mDate.addEventListener('change', () => loadTimes(mDate.value, null));
+
+    async function saveEdit() {
+      if (!currentRow) return;
+      const id = currentRow.dataset.id;
+      const payload = {
+        name: mName.value.trim(),
+        service: mService.value,
+        date: mDate.value,
+        time: mTime.value
+      };
+      try {
+        const res = await fetch(`/admin/api/update/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          alert(data.message || 'Could not save changes.');
+          return;
+        }
+        const b = data.booking;
+        currentRow.dataset.name = b.name;
+        currentRow.dataset.service = b.service;
+        currentRow.dataset.date = b.date;
+        currentRow.dataset.time = b.time;
+        currentRow.querySelector('.cell-name').textContent = b.name;
+        currentRow.querySelector('.cell-service').textContent = b.service;
+        currentRow.querySelector('.cell-date').textContent = b.date;
+        currentRow.querySelector('.cell-time').textContent = b.time;
+        closeModal();
+        applyFilters();
+      } catch { alert('Network error. Try again.'); }
+    }
+    mSave.addEventListener('click', saveEdit);
+
+    $$('.btn-edit').forEach(btn => btn.addEventListener('click', () => openModal(btn.closest('tr'))));
+  </script>
+</body>
+</html>

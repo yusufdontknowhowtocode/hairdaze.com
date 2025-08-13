@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>HairDaze — Admin Login</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg1:#0f172a; --bg2:#0b1220;
+      --card:#0b1324; --ink:#e5e7eb; --muted:#94a3b8; --line:#1f2a44;
+      --bad:#ef4444; --btn:#2563eb; --btn2:#1d4ed8;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{
+      margin:0;color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background: radial-gradient(1200px 1200px at 10% -10%, #143, transparent 35%),
+                  radial-gradient(800px 800px at 110% -10%, #123, transparent 35%),
+                  linear-gradient(160deg,var(--bg1),var(--bg2));
+      display:grid; place-items:center; padding:24px;
+    }
+    .card{
+      width:min(420px,92vw); background:linear-gradient(180deg, rgba(17,25,43,.9), rgba(11,18,32,.9));
+      border:1px solid var(--line); border-radius:16px; padding:22px 22px 18px;
+      box-shadow:0 16px 40px rgba(0,0,0,.35);
+    }
+    h1{margin:0 0 12px;font-size:18px;font-weight:800}
+    label{display:block;font-size:12px;margin:10px 0 6px;color:var(--muted)}
+    input[type="email"], input[type="password"], input[type="text"]{
+      width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0a1221;color:var(--ink);
+      outline:none;box-shadow:inset 0 0 0 9999px rgba(0,0,0,0); /* fix iOS autofill */
+    }
+    input:focus{border-color:#3553a6}
+    .pw-wrap{position:relative}
+    .pw-toggle{
+      position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:#9aa4b2;
+      width:34px;height:34px;border-radius:8px;cursor:pointer
+    }
+    .pw-toggle:hover{color:#cbd5e1;background:#0f1a31}
+    .err{
+      margin:10px 0;padding:9px 10px;border:1px solid #7f1d1d;background:rgba(239,68,68,.12);border-radius:10px;color:#fecaca
+    }
+    .row{display:flex;align-items:center;justify-content:space-between;margin:8px 0 12px}
+    .remember{color:var(--muted);font-size:12px}
+    .remember input{vertical-align:-2px;margin-right:6px}
+    .link{color:#9ec1ff;text-decoration:none}
+    .submit{
+      width:100%;border:1px solid transparent;background:var(--btn);color:#dbeafe;font-weight:700;
+      padding:10px 12px;border-radius:12px;cursor:pointer;transition:background .15s ease,transform .02s
+    }
+    .submit:hover{background:var(--btn2)} .submit:active{transform:translateY(1px)}
+  </style>
+</head>
+<body>
+  <form class="card" action="{{ url_for('login') }}" method="post" autocomplete="off" novalidate>
+    <h1>Admin Login</h1>
+
+    {# show either a passed-in error or a flashed message #}
+    {% with msgs = get_flashed_messages() %}
+      {% if error or (msgs and msgs[0]) %}
+        <div class="err">{{ error or msgs[0] }}</div>
+      {% endif %}
+    {% endwith %}
+
+    {% if request.args.get('next') %}
+      <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+    {% endif %}
+
+    <label>Email</label>
+    <input type="email" name="email" value="{{ request.form.get('email','') }}" required autofocus />
+
+    <label>Password</label>
+    <div class="pw-wrap">
+      <input id="pw" type="password" name="password" required minlength="6" />
+      <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password" title="Show password">
+        <!-- eye open -->
+        <svg id="eyeOpen" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z" stroke="currentColor" stroke-width="2"/>
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <!-- eye off -->
+        <svg id="eyeOff" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none">
+          <path d="M3 3l18 18M10.6 10.6a3 3 0 104.24 4.24M17.94 17.94C16.2 18.93 14.23 19.5 12 19.5 5.6 19.5 2 13.5 2 13.5a22.1 22.1 0 015.64-5.64M12 4.5c6.4 0 10 6 10 6a22.1 22.1 0 01-3.13 3.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="row">
+      <label class="remember"><input type="checkbox" name="remember" value="1"> Keep me signed in</label>
+      <a class="link" href="/">← Back to site</a>
+    </div>
+
+    <button class="submit" type="submit">Sign in</button>
+  </form>
+
+  <script>
+    const pw = document.getElementById('pw');
+    const btn = document.getElementById('pwToggle');
+    const eyeOpen = document.getElementById('eyeOpen');
+    const eyeOff = document.getElementById('eyeOff');
+
+    btn.addEventListener('click', () => {
+      const show = pw.type === 'password';
+      pw.type = show ? 'text' : 'password';
+      eyeOpen.style.display = show ? 'none' : '';
+      eyeOff.style.display  = show ? '' : 'none';
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.title = show ? 'Hide password' : 'Show password';
+    });
+  </script>
+</body>
+</html>

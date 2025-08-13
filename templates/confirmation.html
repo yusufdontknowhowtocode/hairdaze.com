@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Confirmation - HairDaze</title>
+  <style>
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(to bottom right, #ffe1cc, #d4f4f4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      max-width: 450px;
+      width: 90%;
+      text-align: center;
+    }
+    h1 {
+      color: #388E3C;
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+    h2 {
+      margin-top: 15px;
+      font-size: 1.5rem;
+      color: #444;
+    }
+    p {
+      font-size: 1.05rem;
+      margin: 5px 0;
+      color: #333;
+    }
+    .btn {
+      margin: 15px 8px 0;
+      background: #ff9966;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 1rem;
+      display: inline-block;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .btn:hover { background: #cc7a52; }
+    .cancel-btn { background: #e74c3c; }
+    .cancel-btn:hover { background: #c0392b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✅ Booking Confirmed, {{ name }}!</h1>
+    <p>Your appointment is booked for:</p>
+    <h2>{{ date }} at {{ time }}</h2>
+    <p><strong>Service:</strong> {{ service }}</p>
+    <p><strong>Location:</strong> 414 E Walnut St, North Wales, PA 19454</p>
+
+    <form action="/cancel" method="POST" style="display:inline;">
+      <input type="hidden" name="date" value="{{ date }}">
+      <input type="hidden" name="time" value="{{ time }}">
+      <input type="hidden" name="name" value="{{ name }}">
+      <input type="hidden" name="service" value="{{ service }}">
+      <button type="submit" class="btn cancel-btn">Cancel Booking</button>
+    </form>
+
+    <a href="{{ url_for('home') }}" class="btn">Return to Home</a>
+    <p style="margin-top: 15px; font-size: 0.95rem; color: #666;">
+      Need to reschedule? Cancel and book a new slot.
+    </p>
+  </div>
+</body>
+</html>

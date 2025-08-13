@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HairDaze Salon</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <!-- Animated background canvas -->
+  <canvas id="bgCanvas" class="bg-canvas" aria-hidden="true"></canvas>
+  <!-- Soft cursor glow -->
+  <div id="cursorGlow" aria-hidden="true"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="container header-inner">
+      <h1 class="brand">HairDaze</h1>
+      <button class="menu-btn" id="menuBtn" aria-label="Open menu">Menu</button>
+      <nav id="mainNav" class="nav">
+        <a href="/">Home</a>
+        <a href="#services">Services</a>
+        <a href="#contact-section">Contact</a>
+        <a class="btn btn-primary" href="{{ url_for('book') }}">Book Now</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="orbs" aria-hidden="true">
+      <span class="orb orb-a"></span>
+      <span class="orb orb-b"></span>
+      <span class="orb orb-c"></span>
+    </div>
+
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <h2>Where Style Meets Simplicity</h2>
+        <p>Color, cuts, and styling done with care—and on your schedule.</p>
+        <a href="{{ url_for('book') }}" id="bookCta" class="btn btn-primary">Book Now</a>
+      </div>
+
+      <!-- Art/photo panel (Ken Burns + crossfade + glaze) -->
+      <div class="hero-media card">
+        <div class="slides">
+          <img class="slide s1" src="{{ url_for('static', filename='hair1.png') }}" alt="Salon work 1">
+          <img class="slide s2" src="{{ url_for('static', filename='hair2.png') }}" alt="Salon work 2">
+          <img class="slide s3" src="{{ url_for('static', filename='hair3.png') }}" alt="Salon work 3">
+        </div>
+        <div class="glaze"></div>
+        <div class="filmgrain" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services -->
+  <section class="section services" id="services">
+    <div class="container">
+      <h2>Services</h2>
+      <div class="grid grid-3">
+        <div class="card service-card">
+          <h3>Precision Cut ✂️</h3>
+          <p>Tailored cuts that fit your face shape and lifestyle.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Color & Balayage 🎨</h3>
+          <p>Natural dimension or bold transformations—your call.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Blowouts & Styling 💨</h3>
+          <p>Polished looks for events—or just because.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="about">
+    <div class="container about-grid">
+      <div class="about-image card" data-parallax data-speed="0.15">
+        <img src="{{ url_for('static', filename='hair1.png') }}" alt="Hair style 1">
+      </div>
+      <div class="about-text">
+        <h3>Your Hair, Your Story</h3>
+        <p>At HairDaze, we blend artistry and care to create a look that’s uniquely you.</p>
+        <p><strong>Leave confident. Come back excited.</strong></p>
+      </div>
+      <div class="about-image card" data-parallax data-speed="-0.12">
+        <img src="{{ url_for('static', filename='hair3.png') }}" alt="Hair style 2">
+      </div>
+    </div>
+  </section>
+
+  <!-- Reviews -->
+  <section class="section reviews">
+    <div class="container">
+      <h2>What Our Clients Say</h2>
+      <div class="reviews-grid">
+        <article class="review-card card reveal">
+          <p class="review-text">“Absolutely love my hair! The team was so welcoming.”</p>
+          <p class="review-author">— Jessica R.</p>
+          <p class="review-stars">★★★★★</p>
+        </article>
+        <article class="review-card card reveal" style="--d:.08s">
+          <p class="review-text">“Best salon experience I’ve ever had.”</p>
+          <p class="review-author">— Amanda S.</p>
+          <p class="review-stars">★★★★★</p>
+        </article>
+        <article class="review-card card reveal" style="--d:.16s">
+          <p class="review-text">“My hair has never looked better.”</p>
+          <p class="review-author">— Emily T.</p>
+          <p class="review-stars">★★★★★</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section class="contact" id="contact-section">
+    <div class="container">
+      <h2><span class="orange">Get in Touch</span> <span class="teal">Contact Us</span></h2>
+      <div class="contact-grid">
+        <div class="contact-info card">
+          <h3>Address</h3>
+          <p>414 E Walnut St, North Wales, PA 19454</p>
+          <p><strong>Phone:</strong> (215) 699-5455</p>
+          <p><strong>Email:</strong> hairdaze.reminders@gmail.com</p>
+          <iframe
+            src="https://www.google.com/maps?q=414+E+Walnut+St,+North+Wales,+PA+19454&output=embed"
+            width="100%" height="200" style="border:0" loading="lazy" allowfullscreen>
+          </iframe>
+        </div>
+
+        <form id="contact-form" class="card">
+          <input type="text" name="name" placeholder="Name" required />
+          <input type="email" name="email" placeholder="Email" required />
+          <input type="tel" id="phone" name="phone" placeholder="Phone number" maxlength="14" />
+          <textarea name="message" placeholder="Say something :)" required></textarea>
+          <button type="submit" class="btn btn-primary">Submit</button>
+          <p id="contact-status" class="muted"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container"><p>© 2025 HairDaze. All rights reserved.</p></div>
+  </footer>
+
+  <!-- JS -->
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Mobile menu
+    const menuBtn = document.getElementById('menuBtn');
+    const mainNav = document.getElementById('mainNav');
+    if (menuBtn && mainNav) menuBtn.addEventListener('click', () => mainNav.classList.toggle('open'));
+
+    // Phone mask
+    const phone = document.getElementById('phone');
+    if (phone) phone.addEventListener('input', (e) => {
+      let v = e.target.value.replace(/\D/g,'');
+      if (v.length > 0) v = '(' + v;
+      if (v.length > 4) v = v.slice(0,4) + ') ' + v.slice(4);
+      if (v.length > 9) v = v.slice(0,9) + '-' + v.slice(9,13);
+      e.target.value = v;
+    });
+
+    // Contact AJAX
+    const form = document.getElementById('contact-form');
+    if (form){
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const status = document.getElementById('contact-status');
+        status.textContent = 'Sending…';
+        const payload = { name: form.name.value, email: form.email.value, phone: form.phone.value, message: form.message.value };
+        try{
+          const res = await fetch('/api/contact',{
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+          });
+          const data = await res.json().catch(()=>({}));
+          if (res.ok && data.ok){ status.textContent = 'Thanks! We’ll reply soon.'; form.reset(); }
+          else { status.textContent = data.error || 'Something went wrong. Please try again.'; }
+        }catch{ status.textContent = 'Network error. Please try again.'; }
+      });
+    }
+
+    // Parallax + reveal
+    const parallaxEls = document.querySelectorAll('[data-parallax]');
+    const onScroll = () => {
+      const t = window.scrollY;
+      parallaxEls.forEach(el=>{
+        const speed = parseFloat(el.dataset.speed || 0.1);
+        el.style.transform = `translateY(${t*speed}px)`;
+      });
+    };
+    onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+
+    const reveals = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }});
+    }, {threshold:.12});
+    reveals.forEach(el=> io.observe(el));
+
+    // Cursor glow
+    const glow = document.getElementById('cursorGlow');
+    if (glow){
+      window.addEventListener('pointermove', (e)=>{
+        glow.style.transform = `translate(${e.clientX - 75}px, ${e.clientY - 75}px)`;
+      }, {passive:true});
+    }
+
+    // ===== Canvas: richer colorful flow (no flicker) =====
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    function size(){
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = innerWidth*dpr; canvas.height = innerHeight*dpr;
+      canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    size(); addEventListener('resize', size);
+
+    const COUNT = 190;
+    const parts = new Array(COUNT).fill(0).map(()=>({
+      x: Math.random()*innerWidth, y: Math.random()*innerHeight,
+      v: .55 + Math.random()*1.25, w: .7 + Math.random()*1.2,
+      life: 80 + Math.random()*150, hue: 18 + Math.random()*170
+    }));
+
+    let t = 0, last = performance.now();
+    function field(x,y){ const s=.0011; return Math.sin((x+y)*s + t*.6) + Math.cos((x-y)*s*.9 - t*.35); }
+
+    function draw(now){
+      const dt = Math.min(40, now-last); last = now; t += dt/9000;
+
+      // a touch stronger veil for more visible trails
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(0,0,innerWidth,innerHeight);
+
+      ctx.globalCompositeOperation = 'lighter';
+      parts.forEach(p=>{
+        const a = field(p.x, p.y);
+        const vx = Math.cos(a)*p.v, vy = Math.sin(a)*p.v;
+
+        ctx.strokeStyle = `hsla(${p.hue}, 80%, 60%, 0.18)`;
+        ctx.lineWidth = p.w;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        p.x += vx * dt*0.06; p.y += vy * dt*0.06;
+        ctx.lineTo(p.x, p.y); ctx.stroke();
+
+        p.hue += 0.06; if (p.hue>210) p.hue = 18;
+        if (--p.life<0 || p.x<-120 || p.x>innerWidth+120 || p.y<-120 || p.y>innerHeight+120){
+          p.x=Math.random()*innerWidth; p.y=Math.random()*innerHeight; p.life=80+Math.random()*150;
+        }
+      });
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  });
+  </script>
+</body>
+</html>
