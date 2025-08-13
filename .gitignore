@@ -1,0 +1,18 @@
+# --- secrets / env files ---
+.env
+.env.*
+.envrc
+
+# --- Python build junk ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# --- virtual environments ---
+venv/
+.venv/
+
+# --- OS/editor noise ---
+.DS_Store
+.vscode/
