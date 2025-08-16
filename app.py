@@ -1,7 +1,7 @@
-# app.py — HairDaze (Supabase + real admin + CSRF + emails)
+# app.py — HairDaze (Supabase + real admin + CSRF + emails + multi-site loader)
 
 from flask import (
-    Flask, render_template, request, jsonify, redirect, url_for, session
+    Flask, render_template, request, jsonify, redirect, url_for, session, flash
 )
 import os, ssl, smtplib, threading, time, secrets
 from email.message import EmailMessage
@@ -16,6 +16,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 NY_TZ = ZoneInfo("America/New_York")
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # ---------- Rate limiting (login) ----------
 try:
@@ -23,7 +24,6 @@ try:
     from flask_limiter.util import get_remote_address
     limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
 except Exception:
-    # graceful fallback if flask-limiter isn't installed
     class _NoLimiter:
         def limit(self, *_a, **_k):
             def _wrap(f): return f
@@ -36,12 +36,17 @@ from supabase import create_client, Client
 SUPABASE_URL = (os.getenv("SUPABASE_URL") or "").strip()
 SUPABASE_SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY") or "").strip()
 SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "appointments")
+DEFAULT_SLUG = os.getenv("DEFAULT_SITE_SLUG", "hairdaze")
 
 assert SUPABASE_URL.startswith("https://") and ".supabase.co" in SUPABASE_URL, "Bad SUPABASE_URL"
 assert len(SUPABASE_SERVICE_KEY) > 40, "Missing SUPABASE_SERVICE_KEY"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 print(f"[Supabase] connected • table '{SUPABASE_TABLE}'")
+
+def storage_public_url(path: str) -> str:
+    # e.g. site-media/<slug>/<filename>
+    return f"{SUPABASE_URL}/storage/v1/object/public/{path}"
 
 # ---------- Session guards ----------
 def requires_login(f):
@@ -62,15 +67,78 @@ def requires_csrf(f):
         return f(*args, **kwargs)
     return _wrap
 
-# ---------- Supabase helpers ----------
+# ---------- Site loader (business + content) ----------
+def load_site(slug: str) -> dict:
+    # 1) business
+    biz_resp = (supabase.table("businesses")
+                .select("*").eq("slug", slug).limit(1).execute())
+    biz = (biz_resp.data or [None])[0] or {}
+
+    business_id = biz.get("id")
+    name = biz.get("name") or "HairDaze"
+    tagline = biz.get("tagline") or "Where Style Meets Simplicity"
+
+    # 2) services
+    svcs = []
+    if business_id:
+        r = (supabase.table("services")
+             .select("name,description,price,sort_order,published")
+             .eq("business_id", business_id).eq("published", True)
+             .order("sort_order", desc=False).execute())
+        svcs = r.data or []
+
+    # 3) reviews
+    revs = []
+    if business_id:
+        r = (supabase.table("reviews")
+             .select("text,author,stars,sort_order,published")
+             .eq("business_id", business_id).eq("published", True)
+             .order("sort_order", desc=False).execute())
+        revs = r.data or []
+
+    # 4) hero images -> full public URLs from bucket site-media/<slug>/*
+    hero_urls = []
+    if business_id:
+        r = (supabase.table("hero_images")
+             .select("filename,sort_order,published")
+             .eq("business_id", business_id).eq("published", True)
+             .order("sort_order", desc=False).execute())
+        rows = r.data or []
+        hero_urls = [storage_public_url(f"site-media/{slug}/{row['filename']}") for row in rows if row.get("filename")]
+
+    # 5) contact/theme/cta
+    theme = {
+        "gradient_start": biz.get("gradient_start") or "#ff9966",
+        "gradient_end":   biz.get("gradient_end") or "#66cccc",
+    }
+    hero = {
+        "cta_text": biz.get("cta_text") or "Book Now",
+        "cta_url":  biz.get("cta_url")  or "/book",
+        "subtext":  "Color, cuts, and styling done with care—and on your schedule.",
+        "images":   hero_urls,
+    }
+    contact = {
+        "address":   biz.get("address") or "414 E Walnut St, North Wales, PA 19454",
+        "phone":     biz.get("phone"),
+        "email":     biz.get("email"),
+        "map_embed": biz.get("map_embed"),
+    }
+    site = {
+        "slug": slug,
+        "brand": {"name": name, "tagline": tagline},
+        "theme": theme,
+        "hero": hero,
+        "services": svcs,
+        "reviews": revs,
+        "contact": contact,
+    }
+    return site
+
+# ---------- Supabase helpers (appointments) ----------
 def sb_slot_taken(date_str: str, time_str: str) -> bool:
     r = (supabase.table(SUPABASE_TABLE)
-         .select("id")
-         .eq("date", date_str)
-         .eq("time", time_str)
-         .eq("status", "Scheduled")
-         .limit(1)
-         .execute())
+         .select("id").eq("date", date_str).eq("time", time_str)
+         .eq("status", "Scheduled").limit(1).execute())
     return bool(r.data)
 
 def sb_insert_booking(date_str: str, time_str: str, name: str, service: str, email: Optional[str]):
@@ -81,15 +149,6 @@ def sb_insert_booking(date_str: str, time_str: str, name: str, service: str, ema
     supabase.table(SUPABASE_TABLE).insert(payload).execute()
     print("[Supabase] booking inserted")
 
-def sb_cancel_by_details(date_str: str, time_str: str, name: str, service: str) -> int:
-    res = (supabase.table(SUPABASE_TABLE)
-           .update({"status": "Cancelled"})
-           .eq("date", date_str).eq("time", time_str)
-           .eq("name", name).eq("service", service)
-           .eq("status", "Scheduled")
-           .execute())
-    return len(res.data or [])
-
 def _fetch_booking(booking_id: int) -> Optional[dict]:
     r = (supabase.table(SUPABASE_TABLE)
          .select("id, date, time, name, service, email, status")
@@ -97,52 +156,46 @@ def _fetch_booking(booking_id: int) -> Optional[dict]:
     rows = r.data or []
     return rows[0] if rows else None
 
+def sb_cancel_by_details(date_str: str, time_str: str, name: str, service: str) -> int:
+    res = (supabase.table(SUPABASE_TABLE)
+           .update({"status": "Cancelled"})
+           .eq("date", date_str).eq("time", time_str)
+           .eq("name", name).eq("service", service)
+           .eq("status", "Scheduled").execute())
+    return len(res.data or [])
+
 def sb_cancel_by_id(booking_id: int):
     (supabase.table(SUPABASE_TABLE)
      .update({"status": "Cancelled"})
-     .eq("id", booking_id)
-     .eq("status", "Scheduled")
-     .execute())
+     .eq("id", booking_id).eq("status", "Scheduled").execute())
     row = _fetch_booking(booking_id)
-    # changed = True iff it is now Cancelled
     changed = bool(row and row.get("status") == "Cancelled")
     return changed, row
 
 def sb_complete_by_id(booking_id: int):
     (supabase.table(SUPABASE_TABLE)
      .update({"status": "Completed"})
-     .eq("id", booking_id)
-     .eq("status", "Scheduled")
-     .execute())
+     .eq("id", booking_id).eq("status", "Scheduled").execute())
     row = _fetch_booking(booking_id)
     changed = bool(row and row.get("status") == "Completed")
     return changed, row
 
 def sb_update_booking(booking_id: int, name: str, service: str, date_str: str, time_str: str):
-    # prevent moving into a taken slot
     clash = (supabase.table(SUPABASE_TABLE)
-             .select("id")
-             .eq("date", date_str).eq("time", time_str)
-             .eq("status", "Scheduled")
-             .neq("id", booking_id)
-             .limit(1).execute())
+             .select("id").eq("date", date_str).eq("time", time_str)
+             .eq("status", "Scheduled").neq("id", booking_id).limit(1).execute())
     if clash.data:
         return None, "That time is already booked"
-
     (supabase.table(SUPABASE_TABLE)
      .update({"name": name, "service": service, "date": date_str, "time": time_str})
      .eq("id", booking_id).execute())
-
     return _fetch_booking(booking_id), None
 
 def sb_load_appointments(start: Optional[str] = None, end: Optional[str] = None, status: str = "scheduled"):
     q = supabase.table(SUPABASE_TABLE).select("id, date, time, name, email, service, status")
-    if start:
-        q = q.gte("date", start)
-    if end:
-        q = q.lte("date", end)
-    if status != "all":
-        q = q.eq("status", "Scheduled")
+    if start: q = q.gte("date", start)
+    if end:   q = q.lte("date", end)
+    if status != "all": q = q.eq("status", "Scheduled")
     q = q.order("date", desc=False).order("time", desc=False)
     return q.execute().data or []
 
@@ -164,13 +217,15 @@ def generate_time_slots(start: str, end: str, interval_minutes: int):
     return slots
 
 # ---------- Public pages ----------
-@app.route("/", endpoint="index")
+@app.get("/", endpoint="index")
 def index():
-    return render_template("index.html")
+    slug = request.args.get("site") or DEFAULT_SLUG
+    site = load_site(slug)
+    return render_template("index.html", site=site)
 
-@app.route("/home")
+@app.get("/home")
 def home():
-    return render_template("index.html")
+    return redirect(url_for("index"))
 
 @app.route("/book", methods=["GET", "POST"])
 def book():
@@ -188,7 +243,6 @@ def book():
 
         try:
             sb_insert_booking(date_str, time_str, name, service, email)
-            # fire-and-forget confirmation
             threading.Thread(
                 target=lambda: send_booking_confirmation({
                     "name": name, "email": email, "service": service,
@@ -202,9 +256,10 @@ def book():
 
         return render_template("confirmation.html", date=date_str, time=time_str, name=name, service=service)
 
+    # still fine without site in this template
     return render_template("book.html", min_date=date.today().isoformat())
 
-@app.route("/confirmation")
+@app.get("/confirmation")
 def confirmation():
     return render_template("confirmation.html",
         date=request.args.get("date"),
@@ -230,9 +285,7 @@ def available_times():
     all_slots = generate_time_slots(start_time, end_time, 30)
 
     rows = (supabase.table(SUPABASE_TABLE)
-            .select("time")
-            .eq("date", date_str)
-            .eq("status", "Scheduled")
+            .select("time").eq("date", date_str).eq("status", "Scheduled")
             .execute().data or [])
     booked = {r["time"] for r in rows}
     open_slots = [s for s in all_slots if s not in booked]
@@ -245,11 +298,8 @@ def available_days():
     end = (today_dt + timedelta(days=59)).isoformat()
 
     rows = (supabase.table(SUPABASE_TABLE)
-            .select("date, time")
-            .gte("date", start).lte("date", end)
-            .eq("status", "Scheduled")
-            .execute().data or [])
-
+            .select("date, time").gte("date", start).lte("date", end)
+            .eq("status", "Scheduled").execute().data or [])
     booked_by_date = {}
     for r in rows:
         booked_by_date.setdefault(r["date"], set()).add(r["time"])
@@ -280,9 +330,7 @@ def cancel_public():
 # ---------- Login / Logout ----------
 @app.get("/login")
 def login():
-    if session.get("user_id"):
-        return redirect(url_for("admin"))
-    return render_template("login.html", error=None)
+    return render_template("login.html")
 
 @limiter.limit("5/minute;50/hour")
 @app.post("/login")
@@ -290,11 +338,22 @@ def login_post():
     email = (request.form.get("email") or "").strip().lower()
     password = request.form.get("password") or ""
 
+    # Option 1: env-based quick admin
+    env_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
+    env_pw    = os.getenv("ADMIN_PASSWORD") or ""
+    if env_email and env_pw and email == env_email:
+        if password == env_pw:
+            session.clear()
+            session["user_id"] = 1
+            session["email"] = env_email
+            session["csrf"] = secrets.token_urlsafe(32)
+            return redirect(url_for("admin"))
+        return render_template("login.html", error="Invalid credentials"), 401
+
+    # Option 2: Supabase admins
     row_res = (supabase.table("admins")
                .select("id, email, password_hash")
-               .eq("email", email)
-               .limit(1)
-               .execute())
+               .eq("email", email).limit(1).execute())
     row = (row_res.data or [None])[0]
     if not row or not check_password_hash(row["password_hash"], password):
         return render_template("login.html", error="Invalid email or password"), 401
@@ -302,7 +361,7 @@ def login_post():
     session.clear()
     session["user_id"] = row["id"]
     session["email"] = row["email"]
-    session["csrf"] = secrets.token_urlsafe(32)  # CSRF for admin POSTs
+    session["csrf"] = secrets.token_urlsafe(32)
     return redirect(url_for("admin"))
 
 @app.get("/logout")
@@ -376,7 +435,6 @@ def send_email(to_email: Optional[str], subject: str, body: str) -> bool:
     msg["From"] = FROM_EMAIL
     msg["To"] = to_email
     msg.set_content(body)
-
     ctx = ssl.create_default_context()
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
         s.starttls(context=ctx)
@@ -388,67 +446,45 @@ def _fmt_appt_line(appt: dict) -> str:
     return f"{appt.get('date')} at {appt.get('time')} — {appt.get('service')}"
 
 def send_booking_confirmation(appt: dict) -> bool:
-    if not SEND_CUSTOMER_NOTIFICATIONS:
-        return False
+    if not SEND_CUSTOMER_NOTIFICATIONS: return False
     email = (appt.get("email") or "").strip()
-    if not email:
-        return False
+    if not email: return False
     name = appt.get("name") or "there"
     subject = f"Your {SALON_NAME} appointment is booked!"
     body = "\n".join([
-        f"Hi {name},",
-        "",
-        "Thanks for booking with us. Here are your details:",
-        f"• {_fmt_appt_line(appt)}",
-        "",
-        "If you need to make changes, just reply to this email.",
-        "",
-        f"See you soon,",
-        SALON_NAME,
-        SALON_ADDRESS,
+        f"Hi {name},", "", "Thanks for booking with us. Here are your details:",
+        f"• {_fmt_appt_line(appt)}", "",
+        "If you need to make changes, just reply to this email.", "",
+        f"See you soon,", SALON_NAME, SALON_ADDRESS,
     ])
     return send_email(email, subject, body)
 
 def send_cancellation_email(appt: dict) -> bool:
-    if not SEND_CUSTOMER_NOTIFICATIONS:
-        return False
+    if not SEND_CUSTOMER_NOTIFICATIONS: return False
     email = (appt.get("email") or "").strip()
-    if not email:
-        return False
+    if not email: return False
     name = appt.get("name") or "there"
     subject = f"{SALON_NAME}: Your appointment was cancelled"
     body = "\n".join([
-        f"Hi {name},",
-        "",
-        "Your appointment has been cancelled:",
-        f"• {_fmt_appt_line(appt)}",
-        "",
-        "If this was unexpected or you’d like to rebook, just reply to this email.",
-        "",
-        f"— {SALON_NAME}",
-        SALON_ADDRESS,
+        f"Hi {name},", "", "Your appointment has been cancelled:",
+        f"• {_fmt_appt_line(appt)}", "",
+        "If this was unexpected or you’d like to rebook, just reply to this email.", "",
+        f"— {SALON_NAME}", SALON_ADDRESS,
     ])
     return send_email(email, subject, body)
 
 def send_thanks_email(appt: dict) -> bool:
-    if not SEND_CUSTOMER_NOTIFICATIONS:
-        return False
+    if not SEND_CUSTOMER_NOTIFICATIONS: return False
     email = (appt.get("email") or "").strip()
-    if not email:
-        return False
+    if not email: return False
     name = appt.get("name") or "there"
     subject = f"Thanks for visiting {SALON_NAME}!"
     body = "\n".join([
-        f"Hi {name},",
-        "",
+        f"Hi {name},", "",
         "Thanks for coming in today — we hope you loved your service!",
-        f"• {_fmt_appt_line(appt)}",
-        "",
-        "If there’s anything we can do better, just reply to this email.",
-        "",
-        f"Can’t wait to see you again,",
-        SALON_NAME,
-        SALON_ADDRESS,
+        f"• {_fmt_appt_line(appt)}", "",
+        "If there’s anything we can do better, just reply to this email.", "",
+        f"Can’t wait to see you again,", SALON_NAME, SALON_ADDRESS,
     ])
     return send_email(email, subject, body)
 
@@ -457,33 +493,20 @@ def send_tomorrow_reminders():
     target = (today_local + timedelta(days=1)).strftime("%Y-%m-%d")
     rows = (supabase.table(SUPABASE_TABLE)
             .select("name, email, service, time")
-            .eq("date", target)
-            .eq("status", "Scheduled")
-            .order("time", desc=False)
-            .execute().data or [])
-
+            .eq("date", target).eq("status", "Scheduled")
+            .order("time", desc=False).execute().data or [])
     grouped = {}
     for r in rows:
         em = (r.get("email") or "").strip()
-        if not em:
-            continue
+        if not em: continue
         grouped.setdefault(em, {"name": r["name"], "items": []})
         grouped[em]["items"].append((r["time"], r["service"]))
-
     for em, data in grouped.items():
         lines = [f"Hi {data['name']},", "", "Reminder: your HairDaze appointment(s) tomorrow:"]
         for t, svc in data["items"]:
             lines.append(f"• {t} — {svc}")
-        lines += [
-            "",
-            f"Date: {target}",
-            "",
-            SALON_ADDRESS,
-            "If you need to cancel, just reply to this email.",
-            "",
-            "See you soon!",
-            "- HairDaze",
-        ]
+        lines += ["", f"Date: {target}", "", SALON_ADDRESS,
+                  "If you need to cancel, just reply to this email.", "", "See you soon!", "- HairDaze"]
         send_email(em, "Reminder: Your HairDaze appointment(s) tomorrow", "\n".join(lines))
 
 def schedule_daily_reminders(hour=18, minute=0):
@@ -513,4 +536,26 @@ def healthz():
 # ---------- Run ----------
 if __name__ == "__main__":
     # Use Gunicorn in production: gunicorn app:app -b 0.0.0.0:$PORT --workers 2 --threads 4
-    app.run(host="0.0.0.0", port=5002)
+    app.run(host="0.0.0.0", port=5002, debug=True)
+
+# ----- Nails demo (Revive Nail Bar) -----
+NAILS_DEMO = {
+    "name": "Revive Nail Bar (Demo)",
+    "tagline": "Manicures • Pedicures • Nail Art",
+    "cta_text": "Book a Mani/Pedi",
+    "grad_a": "#ff85a1",   # soft pink
+    "grad_b": "#66cccc",   # your teal
+    # public info for demo only (adjust if you prefer placeholders)
+    "address": "1250 Bethlehem Pike, Hatfield, PA 19440",
+    "phone": "(215) 716-7090",
+    "email": "",  # leave blank if you don't want to show one
+}
+
+@app.get("/nails-demo")
+def nails_demo():
+    return render_template(
+        "nails_index.html",
+        site=NAILS_DEMO,
+        min_date=date.today().isoformat()
+    )
+

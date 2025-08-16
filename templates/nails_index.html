@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ site.name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex"> <!-- demo: don’t index -->
+
+  <!-- Brand color overrides for this page -->
+  <style>
+    :root{
+      --grad-a: {{ site.grad_a }};
+      --grad-b: {{ site.grad_b }};
+    }
+    .brand{
+      background: linear-gradient(90deg, var(--grad-a), var(--grad-b));
+      -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .btn-primary{ background: linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
+    .hero::after{
+      content:""; position:absolute; inset:0; pointer-events:none;
+      background:
+        radial-gradient(60% 40% at 20% 15%, color-mix(in oklab, var(--grad-a) 38%, transparent), transparent 60%),
+        radial-gradient(60% 40% at 88% 22%, color-mix(in oklab, var(--grad-b) 34%, transparent), transparent 60%);
+      filter: blur(30px);
+    }
+  </style>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <!-- (optional) same animated bg + cursor glow you already have -->
+  <canvas id="bgCanvas" class="bg-canvas" aria-hidden="true"></canvas>
+  <div id="cursorGlow" aria-hidden="true"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="container header-inner">
+      <h1 class="brand" style="margin:0">Revive Nail Bar</h1>
+      <button class="menu-btn" id="menuBtn" aria-label="Open menu">Menu</button>
+      <nav id="mainNav" class="nav">
+        <a href="/nails-demo">Home</a>
+        <a href="#services">Services</a>
+        <a href="#contact-section">Contact</a>
+        <a class="btn btn-primary" href="{{ url_for('book') }}">{{ site.cta_text }}</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <h2>Fresh Nails, Calm Vibes</h2>
+        <p>Classic manicures, gel, pedicures, and nail art—done with care and on your schedule.</p>
+        <a href="{{ url_for('book') }}" class="btn btn-primary">{{ site.cta_text }}</a>
+      </div>
+
+      <!-- Slides (upload nail images below to /static) -->
+      <div class="hero-media card">
+        <div class="slides">
+          <img class="slide s1" src="{{ url_for('static', filename='nail1.jpg') }}" alt="Nail design 1">
+          <img class="slide s2" src="{{ url_for('static', filename='nail2.jpg') }}" alt="Nail design 2">
+          <img class="slide s3" src="{{ url_for('static', filename='nail3.jpg') }}" alt="Nail design 3">
+        </div>
+        <div class="glaze"></div>
+        <div class="filmgrain" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services -->
+  <section class="section services" id="services">
+    <div class="container">
+      <h2>Services</h2>
+      <div class="grid grid-3">
+        <div class="card service-card">
+          <h3>Classic Manicure</h3>
+          <p>Clean, shape &amp; polish. Fresh and simple.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Gel Manicure</h3>
+          <p>Long-lasting shine with a soft gel finish.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Signature Pedicure</h3>
+          <p>Soak, scrub &amp; massage—your feet will thank you.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Dipping Powder</h3>
+          <p>Durable color with a lightweight feel.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Nail Art (Add-On)</h3>
+          <p>French, chrome, decals &amp; simple designs.</p>
+        </div>
+        <div class="card service-card">
+          <h3>Gel Removal</h3>
+          <p>Gentle removal to protect your nails.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reviews marquee (reuses your marquee styles) -->
+  <section class="section reviews" aria-labelledby="reviews-title">
+    <div class="container">
+      <h2 id="reviews-title">What Clients Say</h2>
+      <div class="reviews-marquee">
+        <ul class="marquee-track" role="list">
+          <li class="review-card card"><p class="review-text">“Clean salon, super friendly, my gel lasted over 3 weeks!”</p><p class="review-author">— K.</p><p class="review-stars">★★★★★</p></li>
+          <li class="review-card card"><p class="review-text">“Pedicure was so relaxing. I’m obsessed with the color.”</p><p class="review-author">— A.</p><p class="review-stars">★★★★★</p></li>
+          <li class="review-card card"><p class="review-text">“Quick, precise and beautiful nail art.”</p><p class="review-author">— M.</p><p class="review-stars">★★★★★</p></li>
+        </ul>
+        <ul class="marquee-track" aria-hidden="true" role="list">
+          <li class="review-card card"><p class="review-text">“Clean salon, super friendly, my gel lasted over 3 weeks!”</p><p class="review-author">— K.</p><p class="review-stars">★★★★★</p></li>
+          <li class="review-card card"><p class="review-text">“Pedicure was so relaxing. I’m obsessed with the color.”</p><p class="review-author">— A.</p><p class="review-stars">★★★★★</p></li>
+          <li class="review-card card"><p class="review-text">“Quick, precise and beautiful nail art.”</p><p class="review-author">— M.</p><p class="review-stars">★★★★★</p></li>
+        </ul>
+        <div class="marquee-fade left" aria-hidden="true"></div>
+        <div class="marquee-fade right" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section class="contact" id="contact-section">
+    <div class="container">
+      <h2><span class="orange">Get in Touch</span> <span class="teal">Contact Us</span></h2>
+      <div class="contact-grid">
+        <div class="contact-info card">
+          <h3>Address</h3>
+          <p>{{ site.address }}</p>
+          {% if site.phone %}<p><strong>Phone:</strong> {{ site.phone }}</p>{% endif %}
+          {% if site.email %}<p><strong>Email:</strong> {{ site.email }}</p>{% endif %}
+          <iframe
+            src="https://www.google.com/maps?q={{ site.address | urlencode }}&output=embed"
+            width="100%" height="220" style="border:0" loading="lazy" allowfullscreen></iframe>
+        </div>
+
+        <form id="contact-form" class="card">
+          <input type="text" name="name" placeholder="Name" required />
+          <input type="email" name="email" placeholder="Email" required />
+          <input type="tel" id="phone" name="phone" placeholder="Phone number" maxlength="14" />
+          <textarea name="message" placeholder="Questions about services, pricing or availability?" required></textarea>
+          <button type="submit" class="btn btn-primary">Submit</button>
+          <p id="contact-status" class="muted"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container"><p>Demo site by Chalfont Webs. Not affiliated with the business.</p></div>
+  </footer>
+
+  <!-- reuse your existing JS (menu, phone mask, contact AJAX, background) -->
+  <script>
+    // Use the exact same JS you already have on index.html
+    // (menu toggle, phone mask, contact form AJAX, canvas bg, etc.)
+    document.getElementById('menuBtn')?.addEventListener('click', ()=> {
+      document.getElementById('mainNav')?.classList.toggle('open');
+    });
+  </script>
+</body>
+</html>
