@@ -1,7 +1,7 @@
-# app.py — HairDaze (Supabase + real admin + CSRF + emails + multi-site loader)
+# app.py — Multi-site Hair/Nail template (Supabase + real admin + CSRF + emails)
 
 from flask import (
-    Flask, render_template, request, jsonify, redirect, url_for, session, flash
+    Flask, render_template, request, jsonify, redirect, url_for, session
 )
 import os, ssl, smtplib, threading, time, secrets
 from email.message import EmailMessage
@@ -18,7 +18,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
 NY_TZ = ZoneInfo("America/New_York")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-# ---------- Rate limiting (login) ----------
+# ---------- Rate limiting (login, optional) ----------
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
@@ -35,7 +35,7 @@ from supabase import create_client, Client
 
 SUPABASE_URL = (os.getenv("SUPABASE_URL") or "").strip()
 SUPABASE_SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY") or "").strip()
-SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "appointments")
+SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "appointments")   # e.g. appointments_nails
 DEFAULT_SLUG = os.getenv("DEFAULT_SITE_SLUG", "hairdaze")
 
 assert SUPABASE_URL.startswith("https://") and ".supabase.co" in SUPABASE_URL, "Bad SUPABASE_URL"
@@ -45,7 +45,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 print(f"[Supabase] connected • table '{SUPABASE_TABLE}'")
 
 def storage_public_url(path: str) -> str:
-    # e.g. site-media/<slug>/<filename>
+    # e.g. site-media/<slug>/<filename> (bucket must be public)
     return f"{SUPABASE_URL}/storage/v1/object/public/{path}"
 
 # ---------- Session guards ----------
@@ -73,10 +73,7 @@ def load_site(slug: str) -> dict:
     biz_resp = (supabase.table("businesses")
                 .select("*").eq("slug", slug).limit(1).execute())
     biz = (biz_resp.data or [None])[0] or {}
-
     business_id = biz.get("id")
-    name = biz.get("name") or "HairDaze"
-    tagline = biz.get("tagline") or "Where Style Meets Simplicity"
 
     # 2) services
     svcs = []
@@ -96,7 +93,7 @@ def load_site(slug: str) -> dict:
              .order("sort_order", desc=False).execute())
         revs = r.data or []
 
-    # 4) hero images -> full public URLs from bucket site-media/<slug>/*
+    # 4) hero images (Supabase Storage) with env fallback
     hero_urls = []
     if business_id:
         r = (supabase.table("hero_images")
@@ -104,37 +101,42 @@ def load_site(slug: str) -> dict:
              .eq("business_id", business_id).eq("published", True)
              .order("sort_order", desc=False).execute())
         rows = r.data or []
-        hero_urls = [storage_public_url(f"site-media/{slug}/{row['filename']}") for row in rows if row.get("filename")]
+        hero_urls = [
+            storage_public_url(f"site-media/{slug}/{row['filename']}")
+            for row in rows if row.get("filename")
+        ]
+    if not hero_urls:
+        # fallback to comma-separated env (e.g. "nail1.jpg,nail2.jpg")
+        hero_urls = [s.strip() for s in (os.getenv("HERO_IMAGES", "")).split(",") if s.strip()]
 
-    # 5) contact/theme/cta
-    theme = {
-        "gradient_start": biz.get("gradient_start") or "#ff9966",
-        "gradient_end":   biz.get("gradient_end") or "#66cccc",
-    }
-    hero = {
-        "cta_text": biz.get("cta_text") or "Book Now",
-        "cta_url":  biz.get("cta_url")  or "/book",
-        "subtext":  "Color, cuts, and styling done with care—and on your schedule.",
-        "images":   hero_urls,
-    }
-    contact = {
-        "address":   biz.get("address") or "414 E Walnut St, North Wales, PA 19454",
-        "phone":     biz.get("phone"),
-        "email":     biz.get("email"),
-        "map_embed": biz.get("map_embed"),
-    }
     site = {
         "slug": slug,
-        "brand": {"name": name, "tagline": tagline},
-        "theme": theme,
-        "hero": hero,
+        "brand": {
+            "name": biz.get("name") or os.getenv("SALON_NAME", "HairDaze"),
+            "tagline": biz.get("tagline") or os.getenv("TAGLINE", "Where Style Meets Simplicity"),
+        },
+        "theme": {
+            "gradient_start": biz.get("gradient_start") or os.getenv("GRADIENT_START", "#ff9966"),
+            "gradient_end":   biz.get("gradient_end")   or os.getenv("GRADIENT_END",   "#66cccc"),
+        },
+        "hero": {
+            "cta_text": biz.get("cta_text") or os.getenv("CTA_TEXT", "Book Now"),
+            "cta_url":  biz.get("cta_url")  or os.getenv("CTA_URL",  "/book"),
+            "subtext":  os.getenv("HERO_SUBTEXT", "Color, cuts, and styling done with care—and on your schedule."),
+            "images":   hero_urls,
+        },
         "services": svcs,
         "reviews": revs,
-        "contact": contact,
+        "contact": {
+            "address":   biz.get("address")   or os.getenv("SALON_ADDRESS", "414 E Walnut St, North Wales, PA 19454"),
+            "phone":     biz.get("phone")     or os.getenv("SALON_PHONE", ""),
+            "email":     biz.get("email")     or os.getenv("SALON_EMAIL", os.getenv("FROM_EMAIL") or ""),
+            "map_embed": biz.get("map_embed") or os.getenv("MAP_EMBED", ""),
+        },
     }
     return site
 
-# ---------- Supabase helpers (appointments) ----------
+# ---------- Appointments helpers ----------
 def sb_slot_taken(date_str: str, time_str: str) -> bool:
     r = (supabase.table(SUPABASE_TABLE)
          .select("id").eq("date", date_str).eq("time", time_str)
@@ -256,7 +258,6 @@ def book():
 
         return render_template("confirmation.html", date=date_str, time=time_str, name=name, service=service)
 
-    # still fine without site in this template
     return render_template("book.html", min_date=date.today().isoformat())
 
 @app.get("/confirmation")
@@ -338,7 +339,7 @@ def login_post():
     email = (request.form.get("email") or "").strip().lower()
     password = request.form.get("password") or ""
 
-    # Option 1: env-based quick admin
+    # Option 1: env-based admin (quick)
     env_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
     env_pw    = os.getenv("ADMIN_PASSWORD") or ""
     if env_email and env_pw and email == env_email:
@@ -350,7 +351,7 @@ def login_post():
             return redirect(url_for("admin"))
         return render_template("login.html", error="Invalid credentials"), 401
 
-    # Option 2: Supabase admins
+    # Option 2: Supabase-backed admin
     row_res = (supabase.table("admins")
                .select("id, email, password_hash")
                .eq("email", email).limit(1).execute())
@@ -480,34 +481,51 @@ def send_thanks_email(appt: dict) -> bool:
     name = appt.get("name") or "there"
     subject = f"Thanks for visiting {SALON_NAME}!"
     body = "\n".join([
-        f"Hi {name},", "",
+        f"Hi {name},",
+        "",
         "Thanks for coming in today — we hope you loved your service!",
-        f"• {_fmt_appt_line(appt)}", "",
-        "If there’s anything we can do better, just reply to this email.", "",
-        f"Can’t wait to see you again,", SALON_NAME, SALON_ADDRESS,
+        f"• {_fmt_appt_line(appt)}",
+        "",
+        "If there’s anything we can do better, just reply to this email.",
+        "",
+        f"Can’t wait to see you again,",
+        SALON_NAME,
+        SALON_ADDRESS,
     ])
     return send_email(email, subject, body)
 
 def send_tomorrow_reminders():
+    """Daily reminder emails using current SALON_NAME + SALON_ADDRESS."""
     today_local = datetime.now(NY_TZ).date()
     target = (today_local + timedelta(days=1)).strftime("%Y-%m-%d")
     rows = (supabase.table(SUPABASE_TABLE)
             .select("name, email, service, time")
             .eq("date", target).eq("status", "Scheduled")
             .order("time", desc=False).execute().data or [])
+
     grouped = {}
     for r in rows:
         em = (r.get("email") or "").strip()
-        if not em: continue
+        if not em:
+            continue
         grouped.setdefault(em, {"name": r["name"], "items": []})
         grouped[em]["items"].append((r["time"], r["service"]))
+
     for em, data in grouped.items():
-        lines = [f"Hi {data['name']},", "", "Reminder: your HairDaze appointment(s) tomorrow:"]
+        lines = [f"Hi {data['name']},", "", f"Reminder: your {SALON_NAME} appointment(s) tomorrow:"]
         for t, svc in data["items"]:
             lines.append(f"• {t} — {svc}")
-        lines += ["", f"Date: {target}", "", SALON_ADDRESS,
-                  "If you need to cancel, just reply to this email.", "", "See you soon!", "- HairDaze"]
-        send_email(em, "Reminder: Your HairDaze appointment(s) tomorrow", "\n".join(lines))
+        lines += [
+            "",
+            f"Date: {target}",
+            "",
+            SALON_ADDRESS,
+            "If you need to cancel, just reply to this email.",
+            "",
+            "See you soon!",
+            f"- {SALON_NAME}",
+        ]
+        send_email(em, f"Reminder: Your {SALON_NAME} appointment(s) tomorrow", "\n".join(lines))
 
 def schedule_daily_reminders(hour=18, minute=0):
     def runner():
@@ -533,29 +551,41 @@ if os.getenv("ENABLE_REMINDERS", "1") == "1":
 def healthz():
     return "ok", 200
 
-# ---------- Run ----------
+# ---------- Global template fallback (when DB has no rows) ----------
+def _env_fallback_site():
+    hero_images = [s.strip() for s in os.getenv("HERO_IMAGES", "").split(",") if s.strip()]
+    return {
+        "slug": DEFAULT_SLUG,
+        "brand": {
+            "name": os.getenv("SALON_NAME", "HairDaze"),
+            "tagline": os.getenv("TAGLINE", "Where Style Meets Simplicity"),
+        },
+        "theme": {
+            "gradient_start": os.getenv("GRADIENT_START", "#ff9966"),
+            "gradient_end":   os.getenv("GRADIENT_END",   "#66cccc"),
+        },
+        "hero": {
+            "cta_text": os.getenv("CTA_TEXT", "Book Now"),
+            "cta_url":  os.getenv("CTA_URL",  "/book"),
+            "subtext":  os.getenv("HERO_SUBTEXT", "Color, cuts, and styling done with care—and on your schedule."),
+            "images":   hero_images,
+        },
+        "services": [],
+        "reviews": [],
+        "contact": {
+            "address":   os.getenv("SALON_ADDRESS", "414 E Walnut St, North Wales, PA 19454"),
+            "phone":     os.getenv("SALON_PHONE", ""),
+            "email":     os.getenv("SALON_EMAIL", os.getenv("FROM_EMAIL") or ""),
+            "map_embed": os.getenv("MAP_EMBED", ""),
+        },
+    }
+
+@app.context_processor
+def inject_site():
+    # Used by pages like /book which don't call load_site() explicitly.
+    return {"site": _env_fallback_site()}
+
+# ---------- Run (dev only; Render uses gunicorn) ----------
 if __name__ == "__main__":
-    # Use Gunicorn in production: gunicorn app:app -b 0.0.0.0:$PORT --workers 2 --threads 4
+    # In production: gunicorn app:app -b 0.0.0.0:$PORT --workers 2 --threads 4
     app.run(host="0.0.0.0", port=5002, debug=True)
-
-# ----- Nails demo (Revive Nail Bar) -----
-NAILS_DEMO = {
-    "name": "Revive Nail Bar (Demo)",
-    "tagline": "Manicures • Pedicures • Nail Art",
-    "cta_text": "Book a Mani/Pedi",
-    "grad_a": "#ff85a1",   # soft pink
-    "grad_b": "#66cccc",   # your teal
-    # public info for demo only (adjust if you prefer placeholders)
-    "address": "1250 Bethlehem Pike, Hatfield, PA 19440",
-    "phone": "(215) 716-7090",
-    "email": "",  # leave blank if you don't want to show one
-}
-
-@app.get("/nails-demo")
-def nails_demo():
-    return render_template(
-        "nails_index.html",
-        site=NAILS_DEMO,
-        min_date=date.today().isoformat()
-    )
-
