@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{{ (site.brand.name or 'HairDaze') ~ ' — ' ~ (site.brand.tagline or 'Where Style Meets Simplicity') }}</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <title>{{ site.brand.name }} — {{ site.brand.tagline or "Where Style Meets Simplicity" }}</title>
 
   <!-- Theme vars from DB -->
   <style>
@@ -13,7 +16,12 @@
     }
   </style>
 
+  <!-- Base styles shared by all sites -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <!-- Nails-only overrides (load by slug) -->
+  {% if site.slug == 'revivenailbar' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='nails.css') }}">
+  {% endif %}
 </head>
 <body>
   <!-- Animated background canvas -->
@@ -21,20 +29,16 @@
   <!-- Soft cursor glow -->
   <div id="cursorGlow" aria-hidden="true"></div>
 
-  {% set site_qs = site.slug and ('?site=' ~ site.slug) or '' %}
-
   <!-- Header -->
   <header>
     <div class="container header-inner">
-      <a class="brand-link" href="{{ url_for('index') }}{{ site_qs }}">
-        <h1 class="brand">{{ site.brand.name or 'HairDaze' }}</h1>
-      </a>
+      <h1 class="brand">{{ site.brand.name }}</h1>
       <button class="menu-btn" id="menuBtn" aria-label="Open menu">Menu</button>
       <nav id="mainNav" class="nav">
-        <a href="{{ url_for('index') }}{{ site_qs }}">Home</a>
+        <a href="/">Home</a>
         <a href="#services">Services</a>
         <a href="#contact-section">Contact</a>
-        <a class="btn btn-primary" href="{{ site.hero.cta_url or url_for('book') }}">{{ site.hero.cta_text or 'Book Now' }}</a>
+        <a class="btn btn-primary" href="{{ site.hero.cta_url }}">{{ site.hero.cta_text }}</a>
       </nav>
     </div>
   </header>
@@ -51,9 +55,7 @@
       <div class="hero-copy">
         <h2>{{ site.brand.tagline or "Where Style Meets Simplicity" }}</h2>
         <p>{{ site.hero.subtext or "Color, cuts, and styling done with care—and on your schedule." }}</p>
-        <a href="{{ site.hero.cta_url or url_for('book') }}" id="bookCta" class="btn btn-primary">
-          {{ site.hero.cta_text or 'Book Now' }}
-        </a>
+        <a href="{{ site.hero.cta_url }}" id="bookCta" class="btn btn-primary">{{ site.hero.cta_text }}</a>
       </div>
 
       <!-- Art/photo panel (Ken Burns + crossfade + glaze) -->
@@ -64,10 +66,15 @@
               <img class="slide s{{ loop.index }}" src="{{ url }}" alt="Hero {{ loop.index }} — {{ site.brand.name }}">
             {% endfor %}
           {% else %}
-            <!-- Fallback to local static images -->
-            <img class="slide s1" src="{{ url_for('static', filename='hair1.png') }}" alt="Work sample 1">
-            <img class="slide s2" src="{{ url_for('static', filename='hair2.png') }}" alt="Work sample 2">
-            <img class="slide s3" src="{{ url_for('static', filename='hair3.png') }}" alt="Work sample 3">
+            {% if site.slug == 'revivenailbar' %}
+              <img class="slide s1" src="{{ url_for('static', filename='nail1.jpg') }}" alt="Nail work 1">
+              <img class="slide s2" src="{{ url_for('static', filename='nail2.jpg') }}" alt="Nail work 2">
+              <img class="slide s3" src="{{ url_for('static', filename='nail3.jpg') }}" alt="Nail work 3">
+            {% else %}
+              <img class="slide s1" src="{{ url_for('static', filename='hair1.png') }}" alt="Salon work 1">
+              <img class="slide s2" src="{{ url_for('static', filename='hair2.png') }}" alt="Salon work 2">
+              <img class="slide s3" src="{{ url_for('static', filename='hair3.png') }}" alt="Salon work 3">
+            {% endif %}
           {% endif %}
         </div>
         <div class="glaze"></div>
@@ -92,36 +99,89 @@
           {% endfor %}
         {% else %}
           <!-- Fallback cards if no DB data yet -->
-          <div class="card service-card">
-            <h3>Signature Service</h3>
-            <p>Thoughtfully crafted for your style and schedule.</p>
-          </div>
-          <div class="card service-card">
-            <h3>Classic Service</h3>
-            <p>Clean, consistent results from our trusted team.</p>
-          </div>
-          <div class="card service-card">
-            <h3>Premium Add-On</h3>
-            <p>Level up your look with an extra touch.</p>
-          </div>
+          {% if site.slug == 'revivenailbar' %}
+            <div class="card service-card">
+              <h3>Signature Manicure</h3>
+              <p>Clean, shape, buff, and polish for healthy, glossy nails.</p>
+              <p class="muted">$25</p>
+            </div>
+            <div class="card service-card">
+              <h3>Classic Pedicure</h3>
+              <p>Soak, exfoliate, massage, and perfect polish.</p>
+              <p class="muted">$40</p>
+            </div>
+            <div class="card service-card">
+              <h3>Gel Manicure</h3>
+              <p>Chip-resistant shine that lasts.</p>
+              <p class="muted">$35</p>
+            </div>
+            <div class="card service-card">
+              <h3>Acrylic Full Set</h3>
+              <p>Custom length and shape, finished to perfection.</p>
+              <p class="muted">$55+</p>
+            </div>
+            <div class="card service-card">
+              <h3>Nail Art</h3>
+              <p>Minimal to premium designs—priced per complexity.</p>
+              <p class="muted">from $5</p>
+            </div>
+            <div class="card service-card">
+              <h3>Deluxe Spa Pedi</h3>
+              <p>Hot towel, extended massage, and hydrating mask.</p>
+              <p class="muted">$60</p>
+            </div>
+          {% else %}
+            <div class="card service-card">
+              <h3>Women’s Cut &amp; Finish</h3>
+              <p>Custom cut, cleanse, and blow-dry finish tailored to your style.</p>
+            </div>
+            <div class="card service-card">
+              <h3>Men’s Cut</h3>
+              <p>Clean lines and classic or modern looks—quick and precise.</p>
+            </div>
+            <div class="card service-card">
+              <h3>Highlights &amp; Balayage</h3>
+              <p>Natural dimension or bold brightness with low-maintenance grow-out.</p>
+            </div>
+            <div class="card service-card">
+              <h3>Root Touch-Up</h3>
+              <p>Seamless coverage for outgrowth to keep your color fresh.</p>
+            </div>
+            <div class="card service-card">
+              <h3>Blowout &amp; Style</h3>
+              <p>Smooth and polished or big, bouncy waves—your call.</p>
+            </div>
+            <div class="card service-card">
+              <h3>Keratin Treatment</h3>
+              <p>Frizz control and shine for weeks with a smoothing keratin service.</p>
+            </div>
+          {% endif %}
         {% endif %}
       </div>
     </div>
   </section>
 
-  <!-- About (simple; uses static fallback images) -->
+  <!-- About -->
   <section class="about">
     <div class="container about-grid">
       <div class="about-image card" data-parallax data-speed="0.15">
-        <img src="{{ url_for('static', filename='hair1.png') }}" alt="{{ site.brand.name }} sample 1">
+        {% if site.slug == 'revivenailbar' %}
+          <img src="{{ url_for('static', filename='nail2.jpg') }}" alt="{{ site.brand.name }} style 1">
+        {% else %}
+          <img src="{{ url_for('static', filename='hair1.png') }}" alt="{{ site.brand.name }} style 1">
+        {% endif %}
       </div>
       <div class="about-text">
-        <h3>Your Look, Your Story</h3>
+        <h3>{{ site.brand.name }}</h3>
         <p>{{ site.brand.tagline or "We blend artistry and care to create a look that’s uniquely you." }}</p>
         <p><strong>Leave confident. Come back excited.</strong></p>
       </div>
       <div class="about-image card" data-parallax data-speed="-0.12">
-        <img src="{{ url_for('static', filename='hair3.png') }}" alt="{{ site.brand.name }} sample 2">
+        {% if site.slug == 'revivenailbar' %}
+          <img src="{{ url_for('static', filename='nail3.jpg') }}" alt="{{ site.brand.name }} style 2">
+        {% else %}
+          <img src="{{ url_for('static', filename='hair3.png') }}" alt="{{ site.brand.name }} style 2">
+        {% endif %}
       </div>
     </div>
   </section>
@@ -139,25 +199,13 @@
             <li class="review-card card">
               <p class="review-text">“{{ r.text }}”</p>
               {% if r.author %}<p class="review-author">— {{ r.author }}</p>{% endif %}
-              <p class="review-stars">{{ "★" * (r.stars or 5) }}</p>
+              <p class="review-stars">{% set stars = r.stars or 5 %}{{ "★" * stars }}</p>
             </li>
             {% endfor %}
           {% else %}
-            <li class="review-card card">
-              <p class="review-text">“Love the service. Friendly staff and great results!”</p>
-              <p class="review-author">— Happy Client</p>
-              <p class="review-stars">★★★★★</p>
-            </li>
-            <li class="review-card card">
-              <p class="review-text">“Clean, quick, and exactly what I wanted.”</p>
-              <p class="review-author">— Taylor</p>
-              <p class="review-stars">★★★★★</p>
-            </li>
-            <li class="review-card card">
-              <p class="review-text">“My go-to spot. Highly recommend.”</p>
-              <p class="review-author">— Alex</p>
-              <p class="review-stars">★★★★★</p>
-            </li>
+            <li class="review-card card"><p class="review-text">“Absolutely love my nails! Super friendly and clean.”</p><p class="review-author">— Jess</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“Best pedicure in town. Relaxing and long-lasting.”</p><p class="review-author">— Amanda</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“The gel lasts weeks and the designs are gorgeous.”</p><p class="review-author">— Emily</p><p class="review-stars">★★★★★</p></li>
           {% endif %}
         </ul>
 
@@ -168,25 +216,13 @@
             <li class="review-card card">
               <p class="review-text">“{{ r.text }}”</p>
               {% if r.author %}<p class="review-author">— {{ r.author }}</p>{% endif %}
-              <p class="review-stars">{{ "★" * (r.stars or 5) }}</p>
+              <p class="review-stars">{% set stars = r.stars or 5 %}{{ "★" * stars }}</p>
             </li>
             {% endfor %}
           {% else %}
-            <li class="review-card card">
-              <p class="review-text">“Warm and welcoming from start to finish.”</p>
-              <p class="review-author">— Jordan</p>
-              <p class="review-stars">★★★★★</p>
-            </li>
-            <li class="review-card card">
-              <p class="review-text">“Fantastic quality every time.”</p>
-              <p class="review-author">— Casey</p>
-              <p class="review-stars">★★★★★</p>
-            </li>
-            <li class="review-card card">
-              <p class="review-text">“Five stars all around.”</p>
-              <p class="review-author">— Morgan</p>
-              <p class="review-stars">★★★★★</p>
-            </li>
+            <li class="review-card card"><p class="review-text">“Clean space, great vibe, and amazing results.”</p><p class="review-author">— Ava</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“My nails have never looked better.”</p><p class="review-author">— Mia</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“Fast booking and beautiful work every time.”</p><p class="review-author">— Sara</p><p class="review-stars">★★★★★</p></li>
           {% endif %}
         </ul>
 
@@ -210,9 +246,7 @@
           {% if site.contact.map_embed %}
             <iframe src="{{ site.contact.map_embed }}" width="100%" height="200" style="border:0" loading="lazy" allowfullscreen></iframe>
           {% elif site.contact.address %}
-            <iframe
-              src="https://www.google.com/maps?q={{ site.contact.address | urlencode }}&output=embed"
-              width="100%" height="200" style="border:0" loading="lazy" allowfullscreen></iframe>
+            <iframe src="https://www.google.com/maps?q={{ site.contact.address | urlencode }}&output=embed" width="100%" height="200" style="border:0" loading="lazy" allowfullscreen></iframe>
           {% endif %}
         </div>
 
@@ -229,7 +263,7 @@
   </section>
 
   <footer>
-    <div class="container"><p>© {{ site.brand.name or 'HairDaze' }}. All rights reserved.</p></div>
+    <div class="container"><p>© {{ site.brand.name }}. All rights reserved.</p></div>
   </footer>
 
   <!-- JS -->
@@ -250,7 +284,7 @@
       e.target.value = v;
     });
 
-    // Contact AJAX (optional; needs /api/contact on the server)
+    // Contact AJAX
     const form = document.getElementById('contact-form');
     if (form){
       form.addEventListener('submit', async (e) => {
@@ -259,11 +293,7 @@
         status.textContent = 'Sending…';
         const payload = { name: form.name.value, email: form.email.value, phone: form.phone.value, message: form.message.value };
         try{
-          const res = await fetch('/api/contact',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify(payload)
-          });
+          const res = await fetch('/api/contact',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
           const data = await res.json().catch(()=>({}));
           if (res.ok && data.ok){ status.textContent = 'Thanks! We’ll reply soon.'; form.reset(); }
           else { status.textContent = data.error || 'Something went wrong. Please try again.'; }
@@ -271,7 +301,7 @@
       });
     }
 
-    // Parallax
+    // Parallax + reveal
     const parallaxEls = document.querySelectorAll('[data-parallax]');
     const onScroll = () => {
       const t = window.scrollY;
@@ -281,6 +311,12 @@
       });
     };
     onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+
+    const reveals = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }});
+    }, {threshold:.12});
+    reveals.forEach(el=> io.observe(el));
 
     // Cursor glow
     const glow = document.getElementById('cursorGlow');
