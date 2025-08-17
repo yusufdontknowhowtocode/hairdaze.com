@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>HairDaze — Cloud Admin</title>
+  <title>{{ brand_name }} — Cloud Admin</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     :root{
@@ -32,13 +32,14 @@
       background:conic-gradient(from 220deg,#22d3ee,#60a5fa,#a78bfa,#22d3ee);
       box-shadow:0 4px 18px rgba(34,211,238,.35)}
     h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
-    .controls{display:flex; gap:10px; flex-wrap:wrap}
+    .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
     .seg{display:inline-flex;padding:4px;background:#0a1221;border:1px solid var(--line);border-radius:12px}
     .seg a{padding:6px 10px;border-radius:8px;color:var(--muted)}
     .seg a.active{background:rgba(37,99,235,.15);color:#cfe0ff;border:1px solid rgba(37,99,235,.35)}
     .search{display:flex; align-items:center; gap:8px; border:1px solid var(--line); background:#0a1221; border-radius:10px; padding:6px 10px; min-width:220px}
     .search input{background:transparent;border:0;outline:0;color:var(--ink);width:170px}
     .search svg{opacity:.7}
+    .link{padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:#0a1221}
     .stats{max-width:1100px;margin:16px auto 0; padding:0 20px;
       display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px}
     .card{background:linear-gradient(180deg, rgba(17,25,43,.85), rgba(11,18,32,.85));
@@ -73,6 +74,7 @@
     .btn.cancel:hover{background:rgba(239,68,68,.25)}
     .btn.ok{background:rgba(16,185,129,.15); color:#bbf7d0; border-color:rgba(16,185,129,.35)}
     .btn.ok:hover{background:rgba(16,185,129,.25)}
+    .btn[disabled]{opacity:.55; cursor:not-allowed}
 
     .toast{position:fixed; right:20px; bottom:20px; background:#0b152a; color:#e5e7eb;
       border:1px solid var(--line); padding:10px 12px; border-radius:10px;
@@ -90,14 +92,14 @@
         <div class="brand">
           <div class="logo" aria-hidden="true"></div>
           <div>
-            <h1>HairDaze — Appointments (Supabase)</h1>
+            <h1>{{ brand_name }} — Appointments</h1>
             <div class="subtle">Today: <strong>{{ today }}</strong></div>
           </div>
         </div>
 
         <div class="controls">
           <!-- status filter -->
-          <div class="seg" id="statusSeg">
+          <div class="seg" id="statusSeg" aria-label="Status filter">
             <a href="#" data-status="all" class="active">All</a>
             <a href="#" data-status="Scheduled">Scheduled</a>
             <a href="#" data-status="Completed">Completed</a>
@@ -105,19 +107,23 @@
           </div>
 
           <!-- today/all -->
-          <div class="seg">
+          <div class="seg" aria-label="Date scope">
             <a class="{{ 'active' if view=='today' else '' }}" href="/admin?view=today">Today</a>
             <a class="{{ 'active' if view!='today' else '' }}" href="/admin?view=all&status=all">All</a>
           </div>
 
           <!-- search -->
-          <label class="search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <label class="search" aria-label="Search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M21 21l-4.3-4.3m1.6-5.4a7 7 0 11-14 0 7 7 0 0114 0z"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <input id="q" type="search" placeholder="Search name, email, service…" />
           </label>
+
+          <!-- quick links -->
+          <a class="link" href="/" target="_blank" rel="noopener">View site</a>
+          <a class="link" href="/logout">Logout</a>
         </div>
       </div>
     </div>
@@ -172,7 +178,7 @@
   </main>
 
   <div class="wrap"><div class="subtle">View: <strong>{{ view }}</strong></div></div>
-  <div class="toast" id="toast">Saved</div>
+  <div class="toast" id="toast" role="status" aria-live="polite">Saved</div>
 
   <script>
     // --- helpers ---
@@ -182,15 +188,19 @@
     const toast = (msg) => { const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1600); };
 
     async function postJSON(url){
-      const res = await fetch(url, { method:'POST', headers:{ 'X-CSRF-Token': CSRF } });
-      if(!res.ok){
-        const txt = await res.text().catch(()=> '');
-        console.error('POST failed', res.status, txt);
-        if(res.status===403) alert('Session expired or CSRF mismatch. Refresh and try again.');
-        else alert('Action failed');
-        return null;
+      try{
+        const res = await fetch(url, { method:'POST', headers:{ 'X-CSRF-Token': CSRF } });
+        if(!res.ok){
+          const txt = await res.text().catch(()=> '');
+          console.error('POST failed', res.status, txt);
+          if(res.status===403) toast('Session expired (CSRF). Refresh.');
+          else toast('Action failed');
+          return null;
+        }
+        return res.json();
+      }catch(e){
+        console.error(e); toast('Network error'); return null;
       }
-      return res.json();
     }
 
     // counts
@@ -207,7 +217,7 @@
 
     // filters
     const q = $('#q'); const statusSeg = $('#statusSeg'); let activeStatus='all';
-    function applyFilters(){
+    const applyFilters = () => {
       const term = (q.value||'').toLowerCase();
       $$('#body tr').forEach(tr=>{
         const statusOk = (activeStatus==='all') || (tr.dataset.status===activeStatus);
@@ -219,7 +229,7 @@
         const searchOk = !term || text.includes(term);
         tr.style.display = (statusOk && searchOk) ? '' : 'none';
       });
-    }
+    };
     q.addEventListener('input', applyFilters);
     statusSeg.addEventListener('click', e=>{
       const a = e.target.closest('a'); if(!a) return; e.preventDefault();
@@ -229,7 +239,7 @@
 
     // sorting
     let sortState = {col:'date', dir:1};
-    function cmp(a,b){ return (a>b) - (a<b); }
+    const cmp = (a,b) => (a>b) - (a<b);
     function sortBy(col){
       const rows = $$('#body tr');
       rows.sort((r1,r2)=>{
@@ -242,28 +252,41 @@
     $$('#tbl thead th[data-col]').forEach(th=> th.addEventListener('click', ()=> sortBy(th.dataset.col)));
 
     // actions
+    function setStatus(tr, s){
+      const badge = tr.querySelector('.status .badge');
+      tr.dataset.status = s;
+      badge.textContent = s;
+      badge.className = 'badge';
+      if(s==='Completed') badge.classList.add('completed');
+      if(s==='Cancelled') badge.classList.add('cancelled');
+
+      // disable buttons if not Scheduled
+      const cancelBtn = tr.querySelector('.cancelBtn');
+      const completeBtn = tr.querySelector('.complete');
+      const disabled = s !== 'Scheduled';
+      cancelBtn.disabled = disabled;
+      completeBtn.disabled = disabled;
+
+      refreshCounts(); applyFilters();
+    }
+
     $$('#body tr').forEach(tr=>{
       const id = tr.dataset.id;
-      const badge = tr.querySelector('.status .badge');
-      function setStatus(s){
-        tr.dataset.status = s;
-        badge.textContent = s;
-        badge.className = 'badge';
-        if(s==='Completed') badge.classList.add('completed');
-        if(s==='Cancelled') badge.classList.add('cancelled');
-        refreshCounts(); applyFilters();
-      }
+      // initialize disabled state for non-Scheduled rows
+      setStatus(tr, tr.dataset.status);
 
       tr.querySelector('.cancelBtn').addEventListener('click', async ()=>{
+        if(tr.dataset.status !== 'Scheduled') return;
         if(!confirm('Cancel this appointment?')) return;
         const j = await postJSON(`/admin/api/cancel/${id}`);
-        if(j && j.changed){ setStatus('Cancelled'); toast('Cancelled'); }
+        if(j && j.changed){ setStatus(tr,'Cancelled'); toast('Cancelled'); }
       });
 
       tr.querySelector('.complete').addEventListener('click', async ()=>{
+        if(tr.dataset.status !== 'Scheduled') return;
         if(!confirm('Mark as completed?')) return;
         const j = await postJSON(`/admin/api/complete/${id}`);
-        if(j && j.changed){ setStatus('Completed'); toast('Completed'); }
+        if(j && j.changed){ setStatus(tr,'Completed'); toast('Completed'); }
       });
     });
   </script>

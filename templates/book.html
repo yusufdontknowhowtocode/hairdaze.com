@@ -3,20 +3,30 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Book Appointment – HairDaze</title>
+
+  <title>{{ brand_name }} — Book Appointment</title>
+
+  <!-- Base styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <!-- Theme (use defaults here; change colors if you like) -->
   <style>
+    :root{
+      --brand-grad-start:#ff9966;
+      --brand-grad-end:#66cccc;
+    }
     .book-wrap{
       min-height: 100vh;
       display:flex; align-items:center; justify-content:center;
       padding: 64px 20px;
-      background: radial-gradient(1200px 600px at 10% 0%, #ffd6bf33, transparent 60%),
-                  radial-gradient(1200px 600px at 100% 100%, #bfeeed33, transparent 60%),
-                  #ffffff;
+      background:
+        radial-gradient(1200px 600px at 10% 0%, #ffd6bf33, transparent 60%),
+        radial-gradient(1200px 600px at 100% 100%, #bfeeed33, transparent 60%),
+        #ffffff;
     }
     .book-card{
       width: 100%;
-      max-width: 660px;
+      max-width: 680px;
       border-radius: 20px;
       background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.70));
       box-shadow: 0 25px 80px rgba(20,20,20,.14);
@@ -26,13 +36,10 @@
     }
     .book-head{
       padding: 22px 26px;
-      background: linear-gradient(90deg, #ff9966 0%, #66cccc 100%);
+      background: linear-gradient(90deg, var(--brand-grad-start) 0%, var(--brand-grad-end) 100%);
       color:#fff;
     }
-    .book-head h1{
-      margin:0; font-size:1.6rem; line-height:1.2; letter-spacing:.3px;
-      text-shadow: 0 1px 6px rgba(0,0,0,.15);
-    }
+    .book-head h1{ margin:0; font-size:1.6rem; line-height:1.2; letter-spacing:.3px; text-shadow:0 1px 6px rgba(0,0,0,.15); }
     .book-body{ padding: 22px 26px 26px; }
     .row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .row + .row{ margin-top:12px; }
@@ -45,11 +52,11 @@
       transition:border-color .2s ease, box-shadow .2s ease;
     }
     input:focus, select:focus, textarea:focus{
-      border-color:#66cccc; box-shadow:0 0 0 4px rgba(102,204,204,.15);
+      border-color:var(--brand-grad-end); box-shadow:0 0 0 4px color-mix(in oklab, var(--brand-grad-end) 30%, white);
     }
     .actions{ margin-top:18px; display:flex; gap:10px; justify-content:flex-end; align-items:center; }
     .btn{ padding:.9rem 1.6rem; border:none; border-radius:12px; font-weight:800; cursor:pointer; }
-    .btn-primary{ color:#fff; background:linear-gradient(90deg,#ff9966,#66cccc); }
+    .btn-primary{ color:#fff; background:linear-gradient(90deg,var(--brand-grad-start),var(--brand-grad-end)); }
     .muted{ color:#6b7280; font-size:.9rem; }
     .pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
       background:#fff; border:1px solid rgba(0,0,0,.06); box-shadow:0 6px 16px rgba(0,0,0,.06); }
@@ -59,7 +66,7 @@
 
 <header>
   <div class="container header-inner">
-    <h1 class="brand">HairDaze</h1>
+    <h1 class="brand">{{ brand_name }}</h1>
     <nav class="nav">
       <a href="{{ url_for('index') }}">Home</a>
       <a href="{{ url_for('index') }}#services">Services</a>
@@ -71,8 +78,10 @@
 <main class="book-wrap">
   <form class="book-card" method="post" action="{{ url_for('book') }}">
     <div class="book-head">
-      <h1>👩‍🦳 Book Your Appointment</h1>
-      <div class="muted" style="margin-top:6px;">Choose a date, time & service. We’ll email a confirmation.</div>
+      <h1>🗓️ Book Your Appointment</h1>
+      <div class="muted" style="margin-top:6px;">
+        Choose a date, time & service. We’ll email a confirmation.
+      </div>
     </div>
 
     <div class="book-body">
@@ -109,11 +118,15 @@
           <label for="service">Service</label>
           <select id="service" name="service" required>
             <option value="">Select a service</option>
+            <!-- HairDaze default services; replace or populate from DB later if you like -->
             <option>Women’s Cut</option>
             <option>Men’s Cut</option>
-            <option>Balayage</option>
             <option>Highlights</option>
+            <option>Balayage</option>
             <option>Blowout</option>
+            <option>Deep Conditioning Treatment</option>
+            <option>Keratin Smoothing</option>
+            <option>Bridal Updo</option>
           </select>
         </div>
       </div>
@@ -124,16 +137,20 @@
       </div>
 
       <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
-        <span class="pill">⏰ Tue–Sat</span>
-        <span class="pill">📍 North Wales</span>
-        <span class="pill">✨ Healthy hair first</span>
+        {% if badges and badges|length %}
+          {% for b in badges %}<span class="pill">{{ b }}</span>{% endfor %}
+        {% else %}
+          <span class="pill">⏰ Tue–Sat</span>
+          <span class="pill">📍 North Wales</span>
+          <span class="pill">✨ Quality first</span>
+        {% endif %}
       </div>
     </div>
   </form>
 </main>
 
 <script>
-  // simple phone formatter
+  // phone formatter
   (function(){
     const phone = document.getElementById('phone');
     if (!phone) return;
@@ -146,43 +163,36 @@
     });
   })();
 
-  // load available times when a date is chosen
+  // load available times
   (function(){
-    const date = document.getElementById('date');
-    const time = document.getElementById('time');
-    if (!date || !time) return;
+    const dateEl = document.getElementById('date');
+    const timeEl = document.getElementById('time');
+    if (!dateEl || !timeEl) return;
 
     async function loadTimes(d){
-      time.innerHTML = `<option value="">Loading…</option>`;
+      timeEl.innerHTML = `<option value="">Loading…</option>`;
       try{
-        // Adjust this endpoint name if yours differs:
         const res = await fetch(`/available_times?date=${encodeURIComponent(d)}`);
-        if (!res.ok) throw 0;
         const data = await res.json();
         const slots = Array.isArray(data.times) ? data.times : (Array.isArray(data) ? data : []);
         if (!slots.length){
-          time.innerHTML = `<option value="">No times available</option>`;
+          timeEl.innerHTML = `<option value="">No times available</option>`;
           return;
         }
-        time.innerHTML = `<option value="">Select time</option>` + 
-          slots.map(t=>`<option>${t}</option>`).join('');
+        timeEl.innerHTML = `<option value="">Select time</option>` + slots.map(t=>`<option>${t}</option>`).join('');
       }catch{
-        // fallback
         const fallback = ["10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM"];
-        time.innerHTML = `<option value="">Select time</option>` + 
-          fallback.map(t=>`<option>${t}</option>`).join('');
+        timeEl.innerHTML = `<option value="">Select time</option>` + fallback.map(t=>`<option>${t}</option>`).join('');
       }
     }
 
-    date.addEventListener('change', e=>{
-      if (e.target.value) loadTimes(e.target.value);
-    });
+    dateEl.addEventListener('change', e=>{ if (e.target.value) loadTimes(e.target.value); });
 
-    // preload if server provided min_date equals today
-    if (date.value) loadTimes(date.value);
+    // optional: pre-load if value present
+    if (dateEl.value) loadTimes(dateEl.value);
   })();
 
-  // optional: show quick submit feedback (server still handles everything)
+  // quick submit feedback
   (function(){
     const form = document.querySelector('form.book-card');
     const status = document.getElementById('status');

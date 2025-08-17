@@ -1,18 +1,9 @@
-# --- secrets / env files ---
-.env
-.env.*
-.envrc
 
-# --- Python build junk ---
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-
-# --- virtual environments ---
 venv/
-.venv/
-
-# --- OS/editor noise ---
+.env
+__pycache__/
+*.pyc
 .DS_Store
 .vscode/
+contact_submissions.csv
+bookings.json

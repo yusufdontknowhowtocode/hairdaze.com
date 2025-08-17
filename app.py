@@ -1,8 +1,6 @@
-# app.py — Multi-site Hair/Nail template (Supabase + real admin + CSRF + emails)
 
-from flask import (
-    Flask, render_template, request, jsonify, redirect, url_for, session
-)
+
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import os, ssl, smtplib, threading, time, secrets
 from email.message import EmailMessage
 from datetime import datetime, timedelta, date
@@ -35,8 +33,7 @@ from supabase import create_client, Client
 
 SUPABASE_URL = (os.getenv("SUPABASE_URL") or "").strip()
 SUPABASE_SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY") or "").strip()
-SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "appointments")   # e.g. appointments_nails
-DEFAULT_SLUG = os.getenv("DEFAULT_SITE_SLUG", "hairdaze")
+SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "appointments")   # set per-site, e.g. appointments_hairdaze
 
 assert SUPABASE_URL.startswith("https://") and ".supabase.co" in SUPABASE_URL, "Bad SUPABASE_URL"
 assert len(SUPABASE_SERVICE_KEY) > 40, "Missing SUPABASE_SERVICE_KEY"
@@ -44,97 +41,35 @@ assert len(SUPABASE_SERVICE_KEY) > 40, "Missing SUPABASE_SERVICE_KEY"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 print(f"[Supabase] connected • table '{SUPABASE_TABLE}'")
 
-def storage_public_url(path: str) -> str:
-    # e.g. site-media/<slug>/<filename> (bucket must be public)
-    return f"{SUPABASE_URL}/storage/v1/object/public/{path}"
-
-# ---------- Session guards ----------
-def requires_login(f):
-    from functools import wraps
-    @wraps(f)
-    def _wrap(*args, **kwargs):
-        if not session.get("user_id"):
-            return redirect(url_for("login", next=request.path))
-        return f(*args, **kwargs)
-    return _wrap
-
-def requires_csrf(f):
-    from functools import wraps
-    @wraps(f)
-    def _wrap(*args, **kwargs):
-        if request.headers.get("X-CSRF-Token") != session.get("csrf"):
-            return jsonify({"ok": False, "error": "csrf"}), 403
-        return f(*args, **kwargs)
-    return _wrap
-
-# ---------- Site loader (business + content) ----------
-def load_site(slug: str) -> dict:
-    # 1) business
-    biz_resp = (supabase.table("businesses")
-                .select("*").eq("slug", slug).limit(1).execute())
-    biz = (biz_resp.data or [None])[0] or {}
-    business_id = biz.get("id")
-
-    # 2) services
-    svcs = []
-    if business_id:
-        r = (supabase.table("services")
-             .select("name,description,price,sort_order,published")
-             .eq("business_id", business_id).eq("published", True)
-             .order("sort_order", desc=False).execute())
-        svcs = r.data or []
-
-    # 3) reviews
-    revs = []
-    if business_id:
-        r = (supabase.table("reviews")
-             .select("text,author,stars,sort_order,published")
-             .eq("business_id", business_id).eq("published", True)
-             .order("sort_order", desc=False).execute())
-        revs = r.data or []
-
-    # 4) hero images (Supabase Storage) with env fallback
-    hero_urls = []
-    if business_id:
-        r = (supabase.table("hero_images")
-             .select("filename,sort_order,published")
-             .eq("business_id", business_id).eq("published", True)
-             .order("sort_order", desc=False).execute())
-        rows = r.data or []
-        hero_urls = [
-            storage_public_url(f"site-media/{slug}/{row['filename']}")
-            for row in rows if row.get("filename")
-        ]
-    if not hero_urls:
-        # fallback to comma-separated env (e.g. "nail1.jpg,nail2.jpg")
-        hero_urls = [s.strip() for s in (os.getenv("HERO_IMAGES", "")).split(",") if s.strip()]
-
-    site = {
-        "slug": slug,
+# ---------- Site loader (HairDaze only; env-driven) ----------
+def load_site() -> dict:
+    hero_urls = [s.strip() for s in (os.getenv("HERO_IMAGES", "")).split(",") if s.strip()]
+    return {
+        "slug": "hairdaze",
         "brand": {
-            "name": biz.get("name") or os.getenv("SALON_NAME", "HairDaze"),
-            "tagline": biz.get("tagline") or os.getenv("TAGLINE", "Where Style Meets Simplicity"),
+            "name": os.getenv("SALON_NAME", "HairDaze"),
+            "tagline": os.getenv("TAGLINE", "Where Style Meets Simplicity"),
         },
         "theme": {
-            "gradient_start": biz.get("gradient_start") or os.getenv("GRADIENT_START", "#ff9966"),
-            "gradient_end":   biz.get("gradient_end")   or os.getenv("GRADIENT_END",   "#66cccc"),
+            "gradient_start": os.getenv("GRADIENT_START", "#ff9966"),
+            "gradient_end":   os.getenv("GRADIENT_END",   "#66cccc"),
         },
         "hero": {
-            "cta_text": biz.get("cta_text") or os.getenv("CTA_TEXT", "Book Now"),
-            "cta_url":  biz.get("cta_url")  or os.getenv("CTA_URL",  "/book"),
+            "cta_text": os.getenv("CTA_TEXT", "Book Now"),
+            "cta_url":  os.getenv("CTA_URL",  "/book"),
             "subtext":  os.getenv("HERO_SUBTEXT", "Color, cuts, and styling done with care—and on your schedule."),
             "images":   hero_urls,
         },
-        "services": svcs,
-        "reviews": revs,
+        # If you want services/reviews from DB, add that here later; keeping env-only for HairDaze.
+        "services": [],
+        "reviews": [],
         "contact": {
-            "address":   biz.get("address")   or os.getenv("SALON_ADDRESS", "414 E Walnut St, North Wales, PA 19454"),
-            "phone":     biz.get("phone")     or os.getenv("SALON_PHONE", ""),
-            "email":     biz.get("email")     or os.getenv("SALON_EMAIL", os.getenv("FROM_EMAIL") or ""),
-            "map_embed": biz.get("map_embed") or os.getenv("MAP_EMBED", ""),
+            "address":   os.getenv("SALON_ADDRESS", "414 E Walnut St, North Wales, PA 19454"),
+            "phone":     os.getenv("SALON_PHONE", ""),
+            "email":     os.getenv("SALON_EMAIL", os.getenv("FROM_EMAIL") or ""),
+            "map_embed": os.getenv("MAP_EMBED", ""),
         },
     }
-    return site
 
 # ---------- Appointments helpers ----------
 def sb_slot_taken(date_str: str, time_str: str) -> bool:
@@ -201,14 +136,38 @@ def sb_load_appointments(start: Optional[str] = None, end: Optional[str] = None,
     q = q.order("date", desc=False).order("time", desc=False)
     return q.execute().data or []
 
-# ---------- Hours & slots ----------
-HOURS_BY_WEEKDAY = {
+# ---------- Hours & slots (per-site via env) ----------
+def _parse_hours_env():
+    """
+    Optional env var HOURS like:
+      HOURS="Tue=10:00 AM-7:00 PM;Wed=10:00 AM-7:00 PM;Thu=10:00 AM-7:00 PM;Fri=9:00 AM-6:00 PM;Sat=9:00 AM-5:00 PM"
+    Returns a dict keyed by weekday index (Mon=0..Sun=6) -> (start,end)
+    """
+    mapping = {"mon":0,"tue":1,"wed":2,"thu":3,"fri":4,"sat":5,"sun":6}
+    raw = (os.getenv("HOURS") or "").strip()
+    if not raw:
+        return None
+    out = {}
+    for part in raw.split(";"):
+        if "=" not in part:
+            continue
+        day, span = part.split("=", 1)
+        day_i = mapping.get(day.strip()[:3].lower())
+        if day_i is None or "-" not in span:
+            continue
+        start, end = [s.strip() for s in span.split("-", 1)]
+        out[day_i] = (start, end)
+    return out or None
+
+DEFAULT_HOURS = {
     1: ("10:00 AM", "7:00 PM"),  # Tue
     2: ("2:00 PM",  "7:00 PM"),  # Wed
     3: ("10:00 AM", "7:00 PM"),  # Thu
-    4: ("9:00 AM",  "2:00 PM"),  # Fri
-    5: ("8:00 AM",  "2:00 PM"),  # Sat
+    4: ("9:00 AM",  "6:00 PM"),  # Fri
+    5: ("9:00 AM",  "5:00 PM"),  # Sat
 }
+HOURS_BY_WEEKDAY = _parse_hours_env() or DEFAULT_HOURS
+
 def generate_time_slots(start: str, end: str, interval_minutes: int):
     fmt = "%I:%M %p"
     from datetime import datetime as dt
@@ -221,8 +180,7 @@ def generate_time_slots(start: str, end: str, interval_minutes: int):
 # ---------- Public pages ----------
 @app.get("/", endpoint="index")
 def index():
-    slug = request.args.get("site") or DEFAULT_SLUG
-    site = load_site(slug)
+    site = load_site()
     return render_template("index.html", site=site)
 
 @app.get("/home")
@@ -370,6 +328,17 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
+# ---------- Auth helpers ----------
+from functools import wraps
+
+def requires_login(f):
+    @wraps(f)
+    def _wrap(*args, **kwargs):
+        if not session.get("user_id"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return _wrap
+
 # ---------- Admin view ----------
 @app.get("/admin")
 @requires_login
@@ -381,6 +350,14 @@ def admin():
     return render_template("admin_cloud.html", rows=rows, today=today, view=view, csrf=session.get("csrf"))
 
 # ---------- Admin APIs (session + CSRF) ----------
+def requires_csrf(f):
+    @wraps(f)
+    def _wrap(*args, **kwargs):
+        if request.headers.get("X-CSRF-Token") != session.get("csrf"):
+            return jsonify({"ok": False, "error": "csrf"}), 403
+        return f(*args, **kwargs)
+    return _wrap
+
 @app.post("/admin/api/cancel/<int:booking_id>")
 @requires_login
 @requires_csrf
@@ -515,16 +492,8 @@ def send_tomorrow_reminders():
         lines = [f"Hi {data['name']},", "", f"Reminder: your {SALON_NAME} appointment(s) tomorrow:"]
         for t, svc in data["items"]:
             lines.append(f"• {t} — {svc}")
-        lines += [
-            "",
-            f"Date: {target}",
-            "",
-            SALON_ADDRESS,
-            "If you need to cancel, just reply to this email.",
-            "",
-            "See you soon!",
-            f"- {SALON_NAME}",
-        ]
+        lines += ["", f"Date: {target}", "", SALON_ADDRESS,
+                  "If you need to cancel, just reply to this email.", "", "See you soon!", f"- {SALON_NAME}"]
         send_email(em, f"Reminder: Your {SALON_NAME} appointment(s) tomorrow", "\n".join(lines))
 
 def schedule_daily_reminders(hour=18, minute=0):
@@ -551,39 +520,19 @@ if os.getenv("ENABLE_REMINDERS", "1") == "1":
 def healthz():
     return "ok", 200
 
-# ---------- Global template fallback (when DB has no rows) ----------
-def _env_fallback_site():
-    hero_images = [s.strip() for s in os.getenv("HERO_IMAGES", "").split(",") if s.strip()]
-    return {
-        "slug": DEFAULT_SLUG,
-        "brand": {
-            "name": os.getenv("SALON_NAME", "HairDaze"),
-            "tagline": os.getenv("TAGLINE", "Where Style Meets Simplicity"),
-        },
-        "theme": {
-            "gradient_start": os.getenv("GRADIENT_START", "#ff9966"),
-            "gradient_end":   os.getenv("GRADIENT_END",   "#66cccc"),
-        },
-        "hero": {
-            "cta_text": os.getenv("CTA_TEXT", "Book Now"),
-            "cta_url":  os.getenv("CTA_URL",  "/book"),
-            "subtext":  os.getenv("HERO_SUBTEXT", "Color, cuts, and styling done with care—and on your schedule."),
-            "images":   hero_images,
-        },
-        "services": [],
-        "reviews": [],
-        "contact": {
-            "address":   os.getenv("SALON_ADDRESS", "414 E Walnut St, North Wales, PA 19454"),
-            "phone":     os.getenv("SALON_PHONE", ""),
-            "email":     os.getenv("SALON_EMAIL", os.getenv("FROM_EMAIL") or ""),
-            "map_embed": os.getenv("MAP_EMBED", ""),
-        },
-    }
+# ---------- Per-template globals (does NOT override `site`) ----------
+HERO_SUBTEXT = os.getenv("HERO_SUBTEXT")
+BOOK_BADGES = [s.strip() for s in os.getenv(
+    "BOOK_BADGES", "Tue–Sat|North Wales, PA|Healthy hair first"
+).split("|") if s.strip()]
 
 @app.context_processor
-def inject_site():
-    # Used by pages like /book which don't call load_site() explicitly.
-    return {"site": _env_fallback_site()}
+def inject_brand_and_badges():
+    return {
+        "brand_name": os.getenv("SALON_NAME", "HairDaze"),
+        "badges": BOOK_BADGES,
+        "hero_subtext_override": HERO_SUBTEXT or None,
+    }
 
 # ---------- Run (dev only; Render uses gunicorn) ----------
 if __name__ == "__main__":

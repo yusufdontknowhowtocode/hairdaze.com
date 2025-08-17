@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Salon Admin — Bookings</title>
+  <title>{{ brand_name }} — Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -54,8 +54,6 @@
     th { background: #fafafa; font-weight: 700; color: #374151; }
 
     tr.today { background: #eaf6ec; }
-    tr.tomorrow { background: #fff7e0; }
-    tr.later { background: #f8fafc; }
 
     .tag { padding: 4px 10px; border-radius: 999px; font-size: .8rem; display: inline-block; }
     .Scheduled { background: #e8f5e9; color: var(--green); }
@@ -67,6 +65,7 @@
     .btn-danger { background: #e74c3c; }
     .btn-blue { background: var(--blue); }
     .btn-gray { background: #6b7280; }
+    .btn[disabled]{opacity:.55; cursor:not-allowed}
     .right { text-align: right; }
     .muted { color: var(--muted); font-size: .9rem; }
     .empty { text-align: center; color: var(--muted); padding: 30px 0; }
@@ -89,15 +88,20 @@
   </style>
 </head>
 <body>
+  {% set view_mode = (view or request.args.get('view','today')) %}
+  {% set show_all = (request.args.get('status','scheduled') == 'all') %}
+  {% set items = (bookings or rows) %}
+
   <div class="card">
-    <h1>📋 Salon Bookings</h1>
+    <h1>📋 {{ brand_name }} Bookings</h1>
     <div class="bar">
       <div class="filters">
-        <input id="search" type="text" placeholder="Search name or service…" />
+        <input id="search" type="text" placeholder="Search name, email, or service…" />
         <label class="radio"><input type="radio" name="dateMode" value="all" checked> All</label>
         <label class="radio"><input type="radio" name="dateMode" value="today"> Today</label>
         <label class="radio"><input type="radio" name="dateMode" value="tomorrow"> Tomorrow</label>
-        <!-- Export controls -->
+
+        <!-- Export controls (requires /admin/export.csv route if you enable it) -->
         <input id="expStart" type="date" />
         <input id="expEnd" type="date" />
         <select id="expStatus">
@@ -110,46 +114,54 @@
       <div class="muted">
         {% if show_all %}
           Showing <strong>Scheduled + Cancelled + Completed</strong> •
-          <a class="link" href="{{ url_for('admin') }}">Show scheduled only</a>
+          <a class="link" href="{{ url_for('admin', view=view_mode) }}">Show scheduled only</a>
         {% else %}
           Showing <strong>Scheduled</strong> •
-          <a class="link" href="{{ url_for('admin') }}?show=all">Include cancelled/completed</a>
+          <a class="link" href="{{ url_for('admin', view=view_mode, status='all') }}">Include cancelled/completed</a>
         {% endif %}
       </div>
 
       <div class="right">
+        <a class="link" href="/" target="_blank" rel="noopener">View site</a>
+        &nbsp;•&nbsp;
+        <a class="link" href="/logout">Logout</a>
+        &nbsp;&nbsp;
         <button id="refresh" class="btn" type="button">Refresh</button>
       </div>
     </div>
 
-    {% if bookings %}
+    {% if items and items|length %}
     <table id="tbl">
       <thead>
         <tr>
-          <th>Date</th><th>Time</th><th>Client</th><th>Service</th><th>Status</th><th class="right">Actions</th>
+          <th>Date</th><th>Time</th><th>Client</th><th>Service</th><th>Email</th><th>Status</th><th class="right">Actions</th>
         </tr>
       </thead>
       <tbody>
-        {% for r in bookings %}
-          {% set row_class = "later" %}
-          {% if r["date"] == today %}{% set row_class = "today" %}{% elif r["date"] == tomorrow %}{% set row_class = "tomorrow" %}{% endif %}
+        {% for r in items %}
+          {% set row_class = "today" if r.date == today else "" %}
           <tr class="{{ row_class }}"
-              data-id="{{ r['id'] }}"
-              data-date="{{ r['date'] }}"
-              data-time="{{ r['time'] }}"
-              data-name="{{ r['name'] }}"
-              data-service="{{ r['service'] }}"
-              data-status="{{ r['status'] }}">
-            <td class="cell-date">{{ r["date"] }}</td>
-            <td class="cell-time">{{ r["time"] }}</td>
-            <td class="cell-name">{{ r["name"] }}</td>
-            <td class="cell-service">{{ r["service"] }}</td>
-            <td class="cell-status"><span class="tag {{ r['status'] }}">{{ r["status"] }}</span></td>
+              data-id="{{ r.id }}"
+              data-date="{{ r.date }}"
+              data-time="{{ r.time }}"
+              data-name="{{ r.name }}"
+              data-email="{{ r.email or '' }}"
+              data-service="{{ r.service }}"
+              data-status="{{ r.status or 'Scheduled' }}">
+            <td class="cell-date">{{ r.date }}</td>
+            <td class="cell-time">{{ r.time }}</td>
+            <td class="cell-name">{{ r.name }}</td>
+            <td class="cell-service">{{ r.service }}</td>
+            <td class="cell-email">{{ r.email or "" }}</td>
+            {% set s = (r.status or "Scheduled") %}
+            <td class="cell-status"><span class="tag {{ s }}">{{ s }}</span></td>
             <td class="right">
-              {% if r["status"] == "Scheduled" %}
-                <button class="btn btn-blue btn-edit" data-id="{{ r['id'] }}">Edit</button>
-                <button class="btn btn-gray btn-complete" data-id="{{ r['id'] }}">Complete</button>
-                <button class="btn btn-danger btn-cancel" data-id="{{ r['id'] }}">Cancel</button>
+              {% if s == "Scheduled" %}
+                <button class="btn btn-blue btn-edit" data-id="{{ r.id }}">Edit</button>
+                <button class="btn btn-gray btn-complete" data-id="{{ r.id }}">Complete</button>
+                <button class="btn btn-danger btn-cancel" data-id="{{ r.id }}">Cancel</button>
+              {% else %}
+                <button class="btn btn-gray" disabled>—</button>
               {% endif %}
             </td>
           </tr>
@@ -186,22 +198,39 @@
   </div>
 
   <script>
+    // ===== Context =====
+    const CSRF = "{{ csrf }}";                 // passed by Flask session
+    const TODAY = "{{ today }}";               // yyyy-mm-dd
+    const VIEW = "{{ view_mode }}";            // 'today' | 'all'
     const SHOW_ALL = {{ 'true' if show_all else 'false' }};
-    const TODAY = "{{ today }}";
-    const TOMORROW = "{{ tomorrow }}";
 
+    // compute TOMORROW from TODAY safely
+    const TOMORROW = (() => {
+      const p = (TODAY||'').split('-').map(Number);
+      if (p.length === 3) {
+        const d = new Date(p[0], p[1]-1, p[2]); d.setDate(d.getDate()+1);
+        return d.toISOString().slice(0,10);
+      }
+      const d2 = new Date(); d2.setDate(d2.getDate()+1);
+      return d2.toISOString().slice(0,10);
+    })();
+
+    // ===== Helpers =====
     const $ = (sel, root=document) => root.querySelector(sel);
     const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const getRows = () => $$('#tbl tbody tr[data-id]');
+    const hdrs = () => ({ 'X-CSRF-Token': CSRF, 'Content-Type': 'application/json' });
+
+    $('#refresh')?.addEventListener('click', () => location.reload());
 
     // ===== Filters =====
     const search = $('#search');
     const radios = $$('input[name="dateMode"]');
-    const getRows = () => $$('#tbl tbody tr[data-id]');
     function applyFilters() {
       const q = (search.value || "").trim().toLowerCase();
       const mode = (radios.find(r => r.checked) || {}).value || 'all';
       getRows().forEach(tr => {
-        const text = (tr.dataset.name + " " + tr.dataset.service).toLowerCase();
+        const text = (tr.dataset.name + " " + tr.dataset.email + " " + tr.dataset.service).toLowerCase();
         const date = tr.dataset.date;
         let show = !q || text.includes(q);
         if (mode === 'today') show = show && date === TODAY;
@@ -211,9 +240,8 @@
     }
     search.addEventListener('input', applyFilters);
     radios.forEach(r => r.addEventListener('change', applyFilters));
-    $('#refresh')?.addEventListener('click', () => location.reload());
 
-    // ===== Export CSV =====
+    // ===== Export CSV (requires route) =====
     const expStart = $('#expStart'), expEnd = $('#expEnd'), expStatus = $('#expStatus');
     $('#exportBtn').addEventListener('click', () => {
       const qs = new URLSearchParams();
@@ -223,57 +251,56 @@
       window.location.href = `/admin/export.csv?${qs.toString()}`;
     });
 
-    // ===== Cancel =====
+    // ===== Actions (Cancel / Complete) =====
+    async function postJSON(url, body=null){
+      try{
+        const res = await fetch(url, { method:'POST', headers: hdrs(), body: body?JSON.stringify(body):null });
+        if(!res.ok){
+          if(res.status===403) alert('Session expired or CSRF mismatch. Refresh and try again.');
+          else alert('Action failed.');
+          return null;
+        }
+        return res.json();
+      }catch{ alert('Network error. Try again.'); return null; }
+    }
+
+    function disableRowActions(row){
+      row.querySelectorAll('.btn-edit,.btn-complete,.btn-cancel').forEach(b => b?.setAttribute('disabled',''));
+    }
+
     async function cancelBooking(id, row) {
       if (!confirm('Cancel this booking?')) return;
-      try {
-        const res = await fetch(`/admin/api/cancel/${id}`, { method: 'POST' });
-        const data = await res.json();
-        if (data.ok && data.changed) {
-          if (SHOW_ALL) {
-            row.dataset.status = "Cancelled";
-            row.querySelector('.cell-status .tag').className = "tag Cancelled";
-            row.querySelector('.cell-status .tag').textContent = "Cancelled";
-            row.querySelector('.btn-cancel')?.remove();
-            row.querySelector('.btn-edit')?.remove();
-            row.querySelector('.btn-complete')?.remove();
-          } else {
-            row.remove();
-          }
+      const data = await postJSON(`/admin/api/cancel/${id}`);
+      if (data && data.ok && data.changed) {
+        if (SHOW_ALL) {
+          row.dataset.status = "Cancelled";
+          const tag = row.querySelector('.cell-status .tag');
+          tag.className = "tag Cancelled";
+          tag.textContent = "Cancelled";
+          disableRowActions(row);
         } else {
-          alert('Could not cancel (maybe already cancelled).');
+          row.remove();
         }
-      } catch { alert('Network error. Try again.'); }
+      }
     }
-    $$('.btn-cancel').forEach(btn => btn.addEventListener('click', () => {
-      cancelBooking(btn.dataset.id, btn.closest('tr'));
-    }));
+    $$('.btn-cancel').forEach(btn => btn.addEventListener('click', () => cancelBooking(btn.dataset.id, btn.closest('tr'))));
 
-    // ===== Complete =====
     async function completeBooking(id, row) {
-      try {
-        const res = await fetch(`/admin/api/complete/${id}`, { method: 'POST' });
-        const data = await res.json();
-        if (data.ok && data.changed) {
-          if (SHOW_ALL) {
-            row.dataset.status = "Completed";
-            const tag = row.querySelector('.cell-status .tag');
-            tag.className = "tag Completed";
-            tag.textContent = "Completed";
-            row.querySelector('.btn-cancel')?.remove();
-            row.querySelector('.btn-edit')?.remove();
-            row.querySelector('.btn-complete')?.remove();
-          } else {
-            row.remove();
-          }
+      if (!confirm('Mark as completed?')) return;
+      const data = await postJSON(`/admin/api/complete/${id}`);
+      if (data && data.ok && data.changed) {
+        if (SHOW_ALL) {
+          row.dataset.status = "Completed";
+          const tag = row.querySelector('.cell-status .tag');
+          tag.className = "tag Completed";
+          tag.textContent = "Completed";
+          disableRowActions(row);
         } else {
-          alert('Could not mark completed.');
+          row.remove();
         }
-      } catch { alert('Network error. Try again.'); }
+      }
     }
-    $$('.btn-complete').forEach(btn => btn.addEventListener('click', () => {
-      completeBooking(btn.dataset.id, btn.closest('tr'));
-    }));
+    $$('.btn-complete').forEach(btn => btn.addEventListener('click', () => completeBooking(btn.dataset.id, btn.closest('tr'))));
 
     // ===== Edit modal =====
     const backdrop = $('#editModal');
@@ -324,29 +351,19 @@
         date: mDate.value,
         time: mTime.value
       };
-      try {
-        const res = await fetch(`/admin/api/update/${id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (!data.ok) {
-          alert(data.message || 'Could not save changes.');
-          return;
-        }
-        const b = data.booking;
-        currentRow.dataset.name = b.name;
-        currentRow.dataset.service = b.service;
-        currentRow.dataset.date = b.date;
-        currentRow.dataset.time = b.time;
-        currentRow.querySelector('.cell-name').textContent = b.name;
-        currentRow.querySelector('.cell-service').textContent = b.service;
-        currentRow.querySelector('.cell-date').textContent = b.date;
-        currentRow.querySelector('.cell-time').textContent = b.time;
-        closeModal();
-        applyFilters();
-      } catch { alert('Network error. Try again.'); }
+      const data = await postJSON(`/admin/api/update/${id}`, payload);
+      if (!data || !data.ok) { alert((data && data.message) || 'Could not save changes.'); return; }
+      const b = data.booking;
+      currentRow.dataset.name = b.name;
+      currentRow.dataset.service = b.service;
+      currentRow.dataset.date = b.date;
+      currentRow.dataset.time = b.time;
+      currentRow.querySelector('.cell-name').textContent = b.name;
+      currentRow.querySelector('.cell-service').textContent = b.service;
+      currentRow.querySelector('.cell-date').textContent = b.date;
+      currentRow.querySelector('.cell-time').textContent = b.time;
+      closeModal();
+      applyFilters();
     }
     mSave.addEventListener('click', saveEdit);
 

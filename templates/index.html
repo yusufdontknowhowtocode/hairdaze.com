@@ -8,20 +8,16 @@
   />
   <title>{{ site.brand.name }} — {{ site.brand.tagline or "Where Style Meets Simplicity" }}</title>
 
-  <!-- Theme vars from DB -->
+  <!-- Theme vars from DB/env with safe fallbacks -->
   <style>
     :root{
-      --brand-grad-start: {{ site.theme.gradient_start }};
-      --brand-grad-end:   {{ site.theme.gradient_end }};
+      --brand-grad-start: {{ site.theme.gradient_start or '#ff9966' }};
+      --brand-grad-end:   {{ site.theme.gradient_end   or '#66cccc' }};
     }
   </style>
 
-  <!-- Base styles shared by all sites -->
+  <!-- Base styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <!-- Nails-only overrides (load by slug) -->
-  {% if site.slug == 'revivenailbar' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='nails.css') }}">
-  {% endif %}
 </head>
 <body>
   <!-- Animated background canvas -->
@@ -66,15 +62,9 @@
               <img class="slide s{{ loop.index }}" src="{{ url }}" alt="Hero {{ loop.index }} — {{ site.brand.name }}">
             {% endfor %}
           {% else %}
-            {% if site.slug == 'revivenailbar' %}
-              <img class="slide s1" src="{{ url_for('static', filename='nail1.jpg') }}" alt="Nail work 1">
-              <img class="slide s2" src="{{ url_for('static', filename='nail2.jpg') }}" alt="Nail work 2">
-              <img class="slide s3" src="{{ url_for('static', filename='nail3.jpg') }}" alt="Nail work 3">
-            {% else %}
-              <img class="slide s1" src="{{ url_for('static', filename='hair1.png') }}" alt="Salon work 1">
-              <img class="slide s2" src="{{ url_for('static', filename='hair2.png') }}" alt="Salon work 2">
-              <img class="slide s3" src="{{ url_for('static', filename='hair3.png') }}" alt="Salon work 3">
-            {% endif %}
+            <img class="slide s1" src="{{ url_for('static', filename='hair1.png') }}" alt="Salon work 1">
+            <img class="slide s2" src="{{ url_for('static', filename='hair2.png') }}" alt="Salon work 2">
+            <img class="slide s3" src="{{ url_for('static', filename='hair3.png') }}" alt="Salon work 3">
           {% endif %}
         </div>
         <div class="glaze"></div>
@@ -98,64 +88,31 @@
           </div>
           {% endfor %}
         {% else %}
-          <!-- Fallback cards if no DB data yet -->
-          {% if site.slug == 'revivenailbar' %}
-            <div class="card service-card">
-              <h3>Signature Manicure</h3>
-              <p>Clean, shape, buff, and polish for healthy, glossy nails.</p>
-              <p class="muted">$25</p>
-            </div>
-            <div class="card service-card">
-              <h3>Classic Pedicure</h3>
-              <p>Soak, exfoliate, massage, and perfect polish.</p>
-              <p class="muted">$40</p>
-            </div>
-            <div class="card service-card">
-              <h3>Gel Manicure</h3>
-              <p>Chip-resistant shine that lasts.</p>
-              <p class="muted">$35</p>
-            </div>
-            <div class="card service-card">
-              <h3>Acrylic Full Set</h3>
-              <p>Custom length and shape, finished to perfection.</p>
-              <p class="muted">$55+</p>
-            </div>
-            <div class="card service-card">
-              <h3>Nail Art</h3>
-              <p>Minimal to premium designs—priced per complexity.</p>
-              <p class="muted">from $5</p>
-            </div>
-            <div class="card service-card">
-              <h3>Deluxe Spa Pedi</h3>
-              <p>Hot towel, extended massage, and hydrating mask.</p>
-              <p class="muted">$60</p>
-            </div>
-          {% else %}
-            <div class="card service-card">
-              <h3>Women’s Cut &amp; Finish</h3>
-              <p>Custom cut, cleanse, and blow-dry finish tailored to your style.</p>
-            </div>
-            <div class="card service-card">
-              <h3>Men’s Cut</h3>
-              <p>Clean lines and classic or modern looks—quick and precise.</p>
-            </div>
-            <div class="card service-card">
-              <h3>Highlights &amp; Balayage</h3>
-              <p>Natural dimension or bold brightness with low-maintenance grow-out.</p>
-            </div>
-            <div class="card service-card">
-              <h3>Root Touch-Up</h3>
-              <p>Seamless coverage for outgrowth to keep your color fresh.</p>
-            </div>
-            <div class="card service-card">
-              <h3>Blowout &amp; Style</h3>
-              <p>Smooth and polished or big, bouncy waves—your call.</p>
-            </div>
-            <div class="card service-card">
-              <h3>Keratin Treatment</h3>
-              <p>Frizz control and shine for weeks with a smoothing keratin service.</p>
-            </div>
-          {% endif %}
+          <!-- Hair-only fallback cards if no DB data yet -->
+          <div class="card service-card">
+            <h3>Women’s Cut &amp; Finish</h3>
+            <p>Custom cut, cleanse, and blow-dry finish tailored to your style.</p>
+          </div>
+          <div class="card service-card">
+            <h3>Men’s Cut</h3>
+            <p>Clean lines and classic or modern looks—quick and precise.</p>
+          </div>
+          <div class="card service-card">
+            <h3>Highlights &amp; Balayage</h3>
+            <p>Natural dimension or bold brightness with low-maintenance grow-out.</p>
+          </div>
+          <div class="card service-card">
+            <h3>Root Touch-Up</h3>
+            <p>Seamless coverage for outgrowth to keep your color fresh.</p>
+          </div>
+          <div class="card service-card">
+            <h3>Blowout &amp; Style</h3>
+            <p>Smooth and polished or big, bouncy waves—your call.</p>
+          </div>
+          <div class="card service-card">
+            <h3>Keratin Treatment</h3>
+            <p>Frizz control and shine for weeks with a smoothing keratin service.</p>
+          </div>
         {% endif %}
       </div>
     </div>
@@ -165,11 +122,7 @@
   <section class="about">
     <div class="container about-grid">
       <div class="about-image card" data-parallax data-speed="0.15">
-        {% if site.slug == 'revivenailbar' %}
-          <img src="{{ url_for('static', filename='nail2.jpg') }}" alt="{{ site.brand.name }} style 1">
-        {% else %}
-          <img src="{{ url_for('static', filename='hair1.png') }}" alt="{{ site.brand.name }} style 1">
-        {% endif %}
+        <img src="{{ url_for('static', filename='hair1.png') }}" alt="{{ site.brand.name }} style 1">
       </div>
       <div class="about-text">
         <h3>{{ site.brand.name }}</h3>
@@ -177,11 +130,7 @@
         <p><strong>Leave confident. Come back excited.</strong></p>
       </div>
       <div class="about-image card" data-parallax data-speed="-0.12">
-        {% if site.slug == 'revivenailbar' %}
-          <img src="{{ url_for('static', filename='nail3.jpg') }}" alt="{{ site.brand.name }} style 2">
-        {% else %}
-          <img src="{{ url_for('static', filename='hair3.png') }}" alt="{{ site.brand.name }} style 2">
-        {% endif %}
+        <img src="{{ url_for('static', filename='hair3.png') }}" alt="{{ site.brand.name }} style 2">
       </div>
     </div>
   </section>
@@ -203,9 +152,9 @@
             </li>
             {% endfor %}
           {% else %}
-            <li class="review-card card"><p class="review-text">“Absolutely love my nails! Super friendly and clean.”</p><p class="review-author">— Jess</p><p class="review-stars">★★★★★</p></li>
-            <li class="review-card card"><p class="review-text">“Best pedicure in town. Relaxing and long-lasting.”</p><p class="review-author">— Amanda</p><p class="review-stars">★★★★★</p></li>
-            <li class="review-card card"><p class="review-text">“The gel lasts weeks and the designs are gorgeous.”</p><p class="review-author">— Emily</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“The cut was perfect and the vibe is amazing.”</p><p class="review-author">— Jess</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“Best blowout I’ve had in ages.”</p><p class="review-author">— Amanda</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“Super friendly and great color work.”</p><p class="review-author">— Emily</p><p class="review-stars">★★★★★</p></li>
           {% endif %}
         </ul>
 
@@ -221,7 +170,7 @@
             {% endfor %}
           {% else %}
             <li class="review-card card"><p class="review-text">“Clean space, great vibe, and amazing results.”</p><p class="review-author">— Ava</p><p class="review-stars">★★★★★</p></li>
-            <li class="review-card card"><p class="review-text">“My nails have never looked better.”</p><p class="review-author">— Mia</p><p class="review-stars">★★★★★</p></li>
+            <li class="review-card card"><p class="review-text">“I always leave feeling confident.”</p><p class="review-author">— Mia</p><p class="review-stars">★★★★★</p></li>
             <li class="review-card card"><p class="review-text">“Fast booking and beautiful work every time.”</p><p class="review-author">— Sara</p><p class="review-stars">★★★★★</p></li>
           {% endif %}
         </ul>
@@ -250,6 +199,7 @@
           {% endif %}
         </div>
 
+        <!-- If you don't have a /api/contact route, you can change this to a mailto link or remove the JS below -->
         <form id="contact-form" class="card">
           <input type="text" name="name" placeholder="Name" required />
           <input type="email" name="email" placeholder="Email" required />
@@ -284,7 +234,7 @@
       e.target.value = v;
     });
 
-    // Contact AJAX
+    // Contact AJAX (optional; remove if you don't expose /api/contact)
     const form = document.getElementById('contact-form');
     if (form){
       form.addEventListener('submit', async (e) => {
